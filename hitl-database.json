@@ -1,0 +1,76 @@
+{
+  "pendingTasks": [
+    {
+      "activityId": "2",
+      "workflowExecutionId": "processo_onboarding_teste-1773411377362",
+      "processId": "processo_onboarding_teste",
+      "stepId": "step_validacao_hitl",
+      "type": "hitl_humano",
+      "context": {
+        "process_id": "processo_onboarding_teste",
+        "current_step": "step_validacao_hitl",
+        "history": {
+          "step_extrair_dados": {
+            "status": "sucesso",
+            "data": {
+              "nome": "Cliente Teste",
+              "idade": 35,
+              "cargo": "Engenheiro de Software"
+            }
+          }
+        },
+        "is_completed": false
+      },
+      "markdownContent": "---\nid: \"processo_onboarding_teste\"\nversion: \"1.0.0\"\ndescription: \"Teste de Onboarding de Cliente com validação sistêmica e aprovação HITL\"\ninitial_step: \"step_extrair_dados\"\n---\n\n# Fluxo de Onboarding de Cliente\n\nEstas são as etapas para executar o processo na prova de conceito.\n\n### Etapa: step_extrair_dados\n```json\n{\n  \"id\": \"step_extrair_dados\",\n  \"tipo\": \"automatizada\",\n  \"atividade\": \"extrair_dados_basicos\",\n  \"navegacao\": {\n    \"sucesso\": \"step_validacao_hitl\"\n  }\n}\n```\nEsta etapa apenas simulará a criação de dados básicos pelo *automation-worker*.\n\n### Etapa: step_validacao_hitl\n```json\n{\n  \"id\": \"step_validacao_hitl\",\n  \"tipo\": \"hitl_humano\",\n  \"navegacao\": {\n    \"aprovado\": \"step_notificar_conclusao\",\n    \"rejeitado\": \"finalizado\"\n  }\n}\n```\n**Para o atendente**: Verifique os dados básicos. Chame a ferramenta do MCP retornando o status final: \"aprovado\" ou \"rejeitado\".\n\n### Etapa: step_notificar_conclusao\n```json\n{\n  \"id\": \"step_notificar_conclusao\",\n  \"tipo\": \"automatizada\",\n  \"atividade\": \"webhook\",\n  \"parametros\": {\n    \"url\": \"https://echo.free.beeceptor.com\", \n    \"method\": \"POST\",\n    \"payload\": {\n      \"mensagem\": \"Onboarding concluído com sucesso.\"\n    }\n  },\n  \"navegacao\": {\n    \"default\": \"finalizado\"\n  }\n}\n```\n",
+      "createdAt": "2026-03-13T14:38:30.108Z"
+    },
+    {
+      "activityId": "2",
+      "workflowExecutionId": "processo_onboarding_teste-1773410481680",
+      "processId": "processo_onboarding_teste",
+      "stepId": "step_validacao_hitl",
+      "type": "hitl_humano",
+      "context": {
+        "process_id": "processo_onboarding_teste",
+        "current_step": "step_validacao_hitl",
+        "history": {
+          "step_extrair_dados": {
+            "status": "sucesso",
+            "data": {
+              "nome": "Cliente Teste",
+              "idade": 35,
+              "cargo": "Engenheiro de Software"
+            }
+          }
+        },
+        "is_completed": false
+      },
+      "markdownContent": "---\nid: \"processo_onboarding_teste\"\nversion: \"1.0.0\"\ndescription: \"Teste de Onboarding de Cliente com validação sistêmica e aprovação HITL\"\ninitial_step: \"step_extrair_dados\"\n---\n\n# Fluxo de Onboarding de Cliente\n\nEstas são as etapas para executar o processo na prova de conceito.\n\n### Etapa: step_extrair_dados\n```json\n{\n  \"id\": \"step_extrair_dados\",\n  \"tipo\": \"automatizada\",\n  \"atividade\": \"extrair_dados_basicos\",\n  \"navegacao\": {\n    \"sucesso\": \"step_validacao_hitl\"\n  }\n}\n```\nEsta etapa apenas simulará a criação de dados básicos pelo *automation-worker*.\n\n### Etapa: step_validacao_hitl\n```json\n{\n  \"id\": \"step_validacao_hitl\",\n  \"tipo\": \"hitl_humano\",\n  \"navegacao\": {\n    \"aprovado\": \"step_notificar_conclusao\",\n    \"rejeitado\": \"finalizado\"\n  }\n}\n```\n**Para o atendente**: Verifique os dados básicos. Chame a ferramenta do MCP retornando o status final: \"aprovado\" ou \"rejeitado\".\n\n### Etapa: step_notificar_conclusao\n```json\n{\n  \"id\": \"step_notificar_conclusao\",\n  \"tipo\": \"automatizada\",\n  \"atividade\": \"webhook\",\n  \"parametros\": {\n    \"url\": \"https://echo.free.beeceptor.com\", \n    \"method\": \"POST\",\n    \"payload\": {\n      \"mensagem\": \"Onboarding concluído com sucesso.\"\n    }\n  },\n  \"navegacao\": {\n    \"default\": \"finalizado\"\n  }\n}\n```\n",
+      "createdAt": "2026-03-13T14:38:35.306Z"
+    },
+    {
+      "activityId": "2",
+      "workflowExecutionId": "processo_onboarding_teste-1773411909867",
+      "processId": "processo_onboarding_teste",
+      "stepId": "step_validacao_hitl",
+      "type": "hitl_humano",
+      "context": {
+        "process_id": "processo_onboarding_teste",
+        "current_step": "step_validacao_hitl",
+        "history": {
+          "step_extrair_dados": {
+            "status": "sucesso",
+            "data": {
+              "nome": "Cliente Teste",
+              "idade": 35,
+              "cargo": "Engenheiro de Software"
+            }
+          }
+        },
+        "is_completed": false
+      },
+      "markdownContent": "---\nid: \"processo_onboarding_teste\"\nversion: \"1.0.0\"\ndescription: \"Teste de Onboarding de Cliente com validação sistêmica e aprovação HITL\"\ninitial_step: \"step_extrair_dados\"\n---\n\n# Fluxo de Onboarding de Cliente\n\nEstas são as etapas para executar o processo na prova de conceito.\n\n### Etapa: step_extrair_dados\n```json\n{\n  \"id\": \"step_extrair_dados\",\n  \"tipo\": \"automatizada\",\n  \"atividade\": \"extrair_dados_basicos\",\n  \"navegacao\": {\n    \"sucesso\": \"step_validacao_hitl\"\n  }\n}\n```\nEsta etapa apenas simulará a criação de dados básicos pelo *automation-worker*.\n\n### Etapa: step_validacao_hitl\n```json\n{\n  \"id\": \"step_validacao_hitl\",\n  \"tipo\": \"hitl_humano\",\n  \"navegacao\": {\n    \"aprovado\": \"step_notificar_conclusao\",\n    \"rejeitado\": \"finalizado\"\n  }\n}\n```\n**Para o atendente**: Verifique os dados básicos. Chame a ferramenta do MCP retornando o status final: \"aprovado\" ou \"rejeitado\".\n\n### Etapa: step_notificar_conclusao\n```json\n{\n  \"id\": \"step_notificar_conclusao\",\n  \"tipo\": \"automatizada\",\n  \"atividade\": \"webhook\",\n  \"parametros\": {\n    \"url\": \"https://echo.free.beeceptor.com\", \n    \"method\": \"POST\",\n    \"payload\": {\n      \"mensagem\": \"Onboarding concluído com sucesso.\"\n    }\n  },\n  \"navegacao\": {\n    \"default\": \"finalizado\"\n  }\n}\n```\n",
+      "createdAt": "2026-03-13T14:39:00.214Z"
+    }
+  ]
+}
