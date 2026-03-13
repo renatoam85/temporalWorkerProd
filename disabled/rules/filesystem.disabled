@@ -1,0 +1,30 @@
+# Filesystem Rules
+
+## Folder Structure & Isolation
+
+The system is organized by **automation maturity stage**.  
+Keep experimentation, transformation, and execution strictly isolated.
+
+### Mandatory Automation Isolation
+
+For each automation target, **ONE dedicated sub-folder MUST BE CREATED** inside the respective maturity stage folder (e.g., `/discovery/freelancer`).
+
+Inside this specific folder, **ALL files** related to that automation must reside, including scripts (`.ts`), outputs, logs, prints, and `.html` dumps.  
+This structure must be mirrored identically in `/industrialization` and `/runtime`.
+
+### CRITICAL RULE — NO FILES IN ROOT
+
+- **NEVER** place automation scripts, test outputs, or experimental files directly in the project root.
+- All AI Agent work **MUST** occur within its specific target sub-directory.
+- Any stray script or output file found in the root must be identified as an error and moved to the correct `/discovery/[target]`, `/industrialization/[target]`, or `/runtime/[target]` folder immediately.
+
+---
+
+## Temporary Files
+
+Rules:
+
+- **NEVER** create temporary files in the project root, `/discovery`, or any other folder.
+- The `/tempFiles` folder is **gitignored** and its contents can be deleted at any time without impact.
+- If a temporary file later proves useful, it must be explicitly moved to the appropriate `/discovery/[target]` folder by the user or agent.
+- AI Agents must treat `/tempFiles` as the **only allowed destination** for any file that is not part of the permanent project structure.

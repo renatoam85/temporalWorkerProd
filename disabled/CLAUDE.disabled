@@ -1,0 +1,69 @@
+## Architecture Overview
+
+The system is organized by **automation maturity stage**, not by technology.
+
+### Layers
+
+1. Directives (governance)
+2. Discovery (exploration)
+3. Industrialization (hardening)
+4. Runtime (execution)
+
+This separation guarantees safety, clarity, and scalability.
+
+### Folder Structure
+
+```
+/
+├── /directives
+├── /discovery
+├── /industrialization
+├── /runtime
+├── /shared
+├── /tempFiles
+├── aiagents.md
+├── class_diagram_template.md
+```
+
+The `/shared` folder contains common code, types, or contracts that Runtime and other domains can safely use. No other dependencies are allowed; Runtime must not depend on Discovery or Industrialization directly.
+
+---
+
+## AI Automation Architecture Purpose
+
+This project defines the mandatory architectural contract for generating, industrializing, and executing web automations using:
+
+- AI Agents for discovery and assisted engineering
+- Playwright as the automation engine
+- Temporal as the deterministic orchestration layer
+- Dedicated Workers for production execution
+
+**Primary architectural principle:**
+- AI accelerates engineering.
+- Code defines runtime behavior.
+- Production remains deterministic.
+
+---
+
+## Architectural Reference
+
+### Cross-Domain Contract
+
+| Layer             | Input                      | Output                    |
+|-------------------|----------------------------|---------------------------|
+| Discovery         | Target URL + Credentials   | Versioned Playwright Code |
+| Industrialization | Playwright Code            | Worker + Workflow Code    |
+| Runtime           | Workflow + Input           | Structured Output         |
+
+No runtime dependency on upstream domains is allowed.
+
+### Architectural Guarantees
+
+This architecture guarantees:
+
+- Deterministic runtime behavior
+- Enterprise governance
+- Auditability
+- Reproducibility
+- Scalability
+- Isolation of AI-related risk

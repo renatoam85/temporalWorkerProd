@@ -1,0 +1,110 @@
+# Domain Contracts
+
+## Layer Responsibilities
+
+### /discovery
+Exploratory and experimental code. May contain unstable or temporary artifacts. Not production-ready.
+
+**Mandatory Action for scraping discovery**: continuously document generic scraping knowledge, workarounds, and anti-bot evasion techniques into `skills/scraping.md` to build a central knowledge base for future automations.
+
+### /industrialization
+Transforms exploratory code into deterministic, production-safe components.  
+Applies structure, validation, typing, and error handling.
+
+### /runtime
+Production execution layer. Contains only: Workflows, Workers, Activities, Configuration, Observability.  
+**This is the only folder deployed to production.**
+
+---
+
+## Dependency Direction
+
+Allowed flow only:
+
+```
+Directives → Discovery → Industrialization → Runtime
+```
+
+Runtime must never depend on any other layer.
+
+---
+
+## Domain Separation
+
+| Domain            | Allows AI | Executes in Production |
+|-------------------|-----------|------------------------|
+| Discovery         | Yes       | No                     |
+| Industrialization | Yes       | No                     |
+| Runtime           | No        | Yes                    |
+
+### Formal Definition of Isolation
+
+- Runtime must not contain AI agents.
+- Runtime must not call LLM APIs.
+- Runtime must not execute dynamically generated code.
+- MCP clients or exploratory tools must not exist in production.
+- Discovery prompts, logs, or experimental artifacts must never be imported by Workers.
+
+The only allowed bridge between domains is **versioned source code committed to the repository**.
+
+### Allowed and Forbidden Flows
+
+**Allowed:**
+- Discovery → Versioned Playwright Code
+- Industrialization → Worker + Workflow Code
+- Runtime → Structured Output
+
+**Forbidden:**
+- Runtime → Discovery
+- Runtime → Industrialization
+- Industrialization → Discovery at runtime
+
+Dependencies must always move forward.
+
+---
+
+## Critical Build Rule
+
+The `/runtime` build MUST NOT include:
+
+- `/directives`
+- `/discovery`
+- `/industrialization`
+- `aiagents.md`
+- `class_diagram_template.md`
+
+Runtime must remain: **Deterministic, Minimal, Stable, Secure.**
+
+---
+
+## Domain Responsibilities
+
+### Discovery Domain
+
+Responsible for: exploring target applications, identifying robust selectors, testing navigation paths, generating modular Playwright code, iterating until stable.
+
+Must not: generate Temporal workers, execute production workflows, publish code automatically, influence runtime behavior.
+
+### Industrialization Domain
+
+Responsible for: transforming Playwright modules into Temporal Activities, generating deterministic Workflows, defining retry and timeout policies, enforcing typing and structure, preparing versioned artifacts.
+
+**Functional Intent Rule**: Industrialization must preserve the Functional Intent defined in Discovery:
+- What the automation does
+- The sequence of user-visible actions
+- The extracted or submitted data
+- The structured output schema
+
+Functional Intent must not change without explicit approval.
+
+**Structural improvements are allowed**, including: refactoring for modularity, improving organization and typing, adjusting timeouts and retry policies, converting steps into Activities, strengthening error handling and determinism.
+
+Must not: modify business logic, add or remove interaction steps, change the output schema, introduce AI-driven behavioral logic.
+
+**Escalation Rule**: If stability requires modifying Functional Intent, the change must be documented and explicitly approved. No silent functional drift is allowed.
+
+### Runtime Domain
+
+Responsible for: executing Workflows, executing Activities, returning structured outputs, emitting structured logs.
+
+Must not: generate code, interpret blueprints, call AI models, adapt flow dynamically.

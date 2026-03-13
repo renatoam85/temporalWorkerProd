@@ -1,0 +1,128 @@
+# Discovery Execution Model
+
+## Output Requirements (Phase Contract)
+
+The AI agent must produce:
+
+- TypeScript code
+- Playwright-compatible
+- Modularized by step
+- Fully typed
+- Deterministic
+- JSON-serializable outputs
+
+The generated code is the **sole artifact** passed forward to Industrialization.
+
+---
+
+## Stability Criteria
+
+An automation is considered stable only if:
+
+1. Executes successfully 3 consecutive times
+2. Output structure is identical across executions
+3. Maximum execution time must not exceed 3x the fastest execution time
+4. No fixed delays are required
+5. No uncontrolled retry logic exists
+
+---
+
+## End-to-End Iterative Construction
+
+Discovery is executed as a controlled, iterative engineering process between USER and AI.
+
+Its objective is to construct a fully functional, end-to-end automation that satisfies the Stability Criteria above.
+
+The automation may or may not use Playwright.
+
+**If Playwright is used:**
+- MCP or other exploratory tools may be used only to assist understanding of the target application.
+- MCP must not be part of the final automation artifact.
+- The resulting routine must be implemented as conventional Playwright code.
+- The final artifact must not depend on MCP at runtime.
+
+**During Discovery:**
+- The AI must maintain full contextual continuity of the automation from the first step to final stabilization.
+- The automation must evolve incrementally; previously validated steps must not be discarded without explicit justification.
+- Each refinement must preserve accumulated behavior and improve robustness.
+- The automation must always remain executable as a complete flow (no disconnected fragments).
+
+Discovery is complete only when the entire flow executes successfully and deterministically.
+
+---
+
+## Context Integrity Rule
+
+Throughout Discovery:
+
+- The AI must treat the automation as a single cohesive system.
+- New steps must integrate into the existing flow, not exist as isolated scripts.
+- The AI must continuously reason over the full sequence of actions, not only the last modification.
+- Partial implementations must not be treated as final artifacts.
+- No external conversational context may be required for execution.
+
+**Loss of context is considered a Discovery failure.**
+
+---
+
+## Stabilization Before Structuring
+
+Structural reorganization must not occur before the flow is stable.
+
+The automation must first:
+- Execute end-to-end successfully.
+- Produce a stable and validated output schema.
+- Meet the defined Stability Criteria.
+
+Only after stabilization may the flow be reorganized into structured steps.
+
+---
+
+## Flow Consolidation and Step Extraction
+
+Once stable, the AI must transform the working automation into a structured and versionable artifact.
+
+**Mandatory actions:**
+
+1. Identify logical user-visible steps in the flow.
+2. Extract each logical step into a fully typed function.
+3. Ensure each function:
+   - Has explicit input and output types.
+   - Does not depend on implicit shared state.
+   - Is deterministic.
+4. Create a single orchestrator `.ts` file that:
+   - Calls each step sequentially in explicit order.
+   - Represents the complete end-to-end flow.
+   - Produces the final structured JSON output.
+   - Contains no AI calls.
+   - Contains no exploratory tooling.
+   - Contains no MCP usage.
+
+This orchestrator file represents the **final Discovery artifact**.
+
+---
+
+## Discovery Output Constraints
+
+The final Discovery output must be:
+
+- A single deterministic TypeScript entry file
+- Internally modularized by step functions
+- Fully typed
+- JSON-serializable
+- Free of experimental logs, prompts, or exploratory artifacts
+- Free of MCP or exploratory tooling dependencies
+- Reproducible without AI assistance
+
+This artifact becomes the **only allowed input** for the Industrialization phase.  
+No additional context, memory, or conversational history may be required.
+
+---
+
+## Strict Non-Overlap Rule
+
+Discovery is responsible **only** for producing a stable, deterministic automation organized as sequential logical steps in a single orchestrated TypeScript file.
+
+Industrialization is solely responsible for transforming those steps into Temporal Activities and Workflows.
+
+This section does not modify: Stability Criteria, Industrialization responsibilities, Runtime rules, or Functional Intent governance.

@@ -1,0 +1,34 @@
+# Industrialization Contract
+
+## Deterministic Mapping Rule
+
+Each step from Discovery must generate **one Temporal Activity**.
+
+---
+
+## Standard Retry Policy
+
+Every Activity must define:
+
+- `maximumAttempts`: 10
+- `backoffCoefficient`: 2
+- `initialInterval`: 2 seconds
+
+---
+
+## Timeout Policy
+
+- Activity timeout: 10 minutes
+- Workflow total timeout: 20 minutes
+
+---
+
+## Workflow Rules
+
+Workflow must:
+
+- Execute steps in explicit order
+- Be deterministic
+- Avoid non-deterministic branching (unless explicitly allowed in directives)
+- Not call AI models (unless explicitly allowed in directives)
+- Not load dynamic modules (unless explicitly allowed in directives)
