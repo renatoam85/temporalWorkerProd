@@ -53,14 +53,14 @@ export function parseProcessMarkdownString(rawContent: string, sourceName?: stri
     }
   });
 
-  // 2. Extrair blocos de metadados das Etapas (YAML code blocks)
-  // Utilizamos um regex que busca ```yaml ou ```YAML seguido pelo conteúdo
-  const yamlBlocksRegex = /```yaml\r?\n([\s\S]*?)\r?\n```/ig;
+  // 2. Extrair blocos de metadados das Etapas (YAML ou JSON code blocks)
+  // Utilizamos um regex que busca ```yaml, ```YAML ou ```json seguido pelo conteúdo
+  const yamlBlocksRegex = /```(yaml|json)\r?\n([\s\S]*?)\r?\n```/ig;
   const stepsMap: Record<string, ProcessStep> = {};
 
   let blockMatch;
   while ((blockMatch = yamlBlocksRegex.exec(rawContent)) !== null) {
-    const yamlString = blockMatch[1];
+    const yamlString = blockMatch[2];
     try {
       const parsedYaml = yaml.parse(yamlString);
       // Validar o step against the schema

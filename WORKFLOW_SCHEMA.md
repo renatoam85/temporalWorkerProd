@@ -23,22 +23,18 @@ initial_step: "step_inicial"
 ## 2. Definindo as Etapas do Processo
 
 Ao longo do Markdown, você pode inserir títulos, textos de orientação, imagens, etc. 
-Porém, para registrar uma etapa rastreável sistemicamente, você **deve criar um bloco de código do tipo `json`**.
+Porém, para registrar uma etapa rastreável sistemicamente, você **deve criar um bloco de código do tipo `yaml`**.
 
 ### Modelo de um bloco de Etapa:
-```json
-{
-  "id": "identificador_unico_do_passo",
-  "tipo": "hitl_humano",
-  "atividade": "nome_da_atividade_registrada", // (Opcional)
-  "parametros": { // (Opcional - Pode conter dados soltos)
-    "chave": "valor"
-  },
-  "navegacao": {
-    "status_esperado": "id_do_proximo_passo",
-    "default": "id_do_passo_fallback"
-  }
-}
+```yaml
+id: "identificador_unico_do_passo"
+tipo: "hitl_humano"
+atividade: "nome_da_atividade_registrada" # (Opcional)
+parametros: # (Opcional - Pode conter dados soltos)
+  chave: "valor"
+navegacao:
+  status_esperado: "id_do_proximo_passo"
+  default: "id_do_passo_fallback"
 ```
 
 ---
@@ -60,13 +56,12 @@ O campo `tipo` obriga a etapa a ser roteada para o Worker correto. Atualmente su
 
 Utilizado em conjunto com o tipo `"automatizada"`. Determina especificamente **qual** trecho do código vai processar esta etapa.
 Exemplo:
-```json
-{
-  "id": "step_extract",
-  "tipo": "automatizada",
-  "atividade": "extrair_dados_basicos",
-  "navegacao": { "sucesso": "finalizado" }
-}
+```yaml
+id: "step_extract"
+tipo: "automatizada"
+atividade: "extrair_dados_basicos"
+navegacao:
+  sucesso: "finalizado"
 ```
 *Se aividade `extrair_dados_basicos` não existir no Worker de Automações, o processo falhará.*
 
@@ -75,19 +70,16 @@ Exemplo:
 ## 5. Webhooks Nativos
 
 Se o tipo for `"webhook"`, não preencha `"atividade"`. Em vez disso, passe as configurações HTTP através de `"parametros"`:
-```json
-{
-  "id": "step_comunicador",
-  "tipo": "webhook",
-  "parametros": {
-    "url": "https://api.meusistema.com.br/update",
-    "method": "POST",
-    "payload": {
-      "processamento": "Concluido com sucesso"
-    }
-  },
-  "navegacao": { "sucesso": "finalizado" }
-}
+```yaml
+id: "step_comunicador"
+tipo: "webhook"
+parametros:
+  url: "https://api.meusistema.com.br/update"
+  method: "POST"
+  payload:
+    processamento: "Concluido com sucesso"
+navegacao:
+  sucesso: "finalizado"
 ```
 
 ---
@@ -98,12 +90,11 @@ O campo de navegação é obrigatório e dita o fluxo da automação após a fin
 O sistema avaliará o status retornado pela atividade para definir o próximo step.
 
 **Estrutura de Roteamento:**
-```json
-"navegacao": {
-  "sucesso": "step_envio_email",
-  "falha": "step_revisao_manual",
-  "default": "finalizado"
-}
+```yaml
+navegacao:
+  sucesso: "step_envio_email"
+  falha: "step_revisao_manual"
+  default: "finalizado"
 ```
 
 ### Regras do Roteamento
