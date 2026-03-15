@@ -31,6 +31,7 @@ export const ProcessDefinitionSchema = z.object({
   id: z.string(),
   version: z.string(),
   description: z.string().optional(),
+  abreviacao: z.string().optional(),
   initial_step: z.string(),
   steps: z.record(z.string(), StepSchema), 
   // steps é um dicionário facilitado: { "id_do_step": StepSchema }

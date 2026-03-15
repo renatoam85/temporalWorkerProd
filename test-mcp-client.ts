@@ -14,23 +14,36 @@ async function main() {
   // 1. Listar
   console.log("📋 Listando atividades...");
   const listResult = await client.callTool({ name: "list_hitl_activities", arguments: {} });
-  const tasks = JSON.parse((listResult.content as any)[0].text);
+  const textOutput = String((listResult.content as any)[0].text);
   
-  if (tasks.length === 0) {
+  if (textOutput.includes("Nenhuma atividade pendente no momento.")) {
     console.log("⚠️  Nenhuma atividade pendente.");
     process.exit(0);
   }
 
-  const latest = tasks[0];
-  console.log(`🎯 Atividade encontrada: ${latest.activityId} do workflow ${latest.workflowExecutionId}\n`);
+  // Parse a Tabela Markdown para encontrar o ID
+  // | Activity ID | Execution ID | Process ID | Step ID | Type | Criada Em |
+  const lines = textOutput.split("\n");
+  const dataLines = lines.slice(2).filter(line => line.trim() !== "");
+  
+  if (dataLines.length === 0) {
+    console.log("⚠️  Nenhuma atividade pendente na tabela.");
+    process.exit(0);
+  }
+
+  const columns = dataLines[0].split("|");
+  const rawActivityId = columns[1].trim().replace(/`/g, '');
+  const rawExecutionId = columns[2].trim().replace(/`/g, '');
+  
+  console.log(`🎯 Atividade encontrada: ${rawActivityId} do workflow ${rawExecutionId}\n`);
 
   // 2. Aprovar
   console.log("✅ Chamando complete_activity (APROVADO)...");
   const result = await client.callTool({ 
     name: "complete_activity", 
     arguments: { 
-      workflowExecutionId: latest.workflowExecutionId,
-      activityId: latest.activityId,
+      workflowExecutionId: rawExecutionId,
+      activityId: rawActivityId,
       resultStatus: "aprovado",
       dataPayload: JSON.stringify({ validado_por: "automacao_teste", observacao: "Fix webhook verificado." })
     } 

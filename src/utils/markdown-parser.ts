@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import yaml from "yaml";
 import { ProcessDefinition, ProcessDefinitionSchema, StepSchema, ProcessStep } from "../types/workflow";
 
 /**
@@ -7,23 +8,29 @@ import { ProcessDefinition, ProcessDefinitionSchema, StepSchema, ProcessStep } f
  * 
  * Estratégia de parsing:
  * 1. O Frontmatter YAML (entre `---`) contém ID, Version, Description e Initial Step.
- * 2. Em algum lugar no texto, espera-se blocos ```json ... ``` ou estruturas padronizadas descrevendo cada passo.
- *    No nosso contrato, os metadados do Step estão em um bloco com a classe json na linguagem markdown logo 
+ * 2. Em algum lugar no texto, espera-se blocos ```yaml ... ``` ou estruturas padronizadas descrevendo cada passo.
+ *    No nosso contrato, os metadados do Step estão em um bloco com a classe yaml na linguagem markdown logo 
  *    abaixo da seção do Step.
  */
-export async function parseProcessMarkdown(processId: string, folderPath: string): Promise<{ definition: ProcessDefinition, content: string }> {
-  const filePath = path.join(folderPath, `${processId}.md`);
+export async function parseProcessMarkdown(fileNameWithoutExt: string, folderPath: string): Promise<{ definition: ProcessDefinition, content: string }> {
+  const filePath = path.join(folderPath, `${fileNameWithoutExt}.md`);
   let rawContent: string;
   try {
     rawContent = await fs.readFile(filePath, "utf-8");
   } catch (err: any) {
     if (err.code === "ENOENT") {
-      throw new Error(`Arquivo de processo Markdown na pasta '${folderPath}' não encontrado para ID: ${processId}`);
+      throw new Error(`Arquivo de processo Markdown na pasta '${folderPath}' não encontrado para o arquivo: ${fileNameWithoutExt}`);
     }
     throw err;
   }
 
-  // 1. Parse Frontmatter 
+  return parseProcessMarkdownString(rawContent, fileNameWithoutExt);
+}
+
+/**
+ * Realiza o parse de uma string com conteúdo Markdown de um Processo
+ */
+export function parseProcessMarkdownString(rawContent: string, sourceName?: string): { definition: ProcessDefinition, content: string } {
   const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---/;
   const fmMatch = rawContent.match(frontmatterRegex);
   
@@ -46,22 +53,23 @@ export async function parseProcessMarkdown(processId: string, folderPath: string
     }
   });
 
-  // 2. Extrair blocos de metadados das Etapas (JSON code blocks)
-  // Utilizamos um regex que busca ```json ou ```JSON seguido pelo conteúdo
-  const jsonBlocksRegex = /```json\r?\n([\s\S]*?)\r?\n```/ig;
+  // 2. Extrair blocos de metadados das Etapas (YAML code blocks)
+  // Utilizamos um regex que busca ```yaml ou ```YAML seguido pelo conteúdo
+  const yamlBlocksRegex = /```yaml\r?\n([\s\S]*?)\r?\n```/ig;
   const stepsMap: Record<string, ProcessStep> = {};
 
   let blockMatch;
-  while ((blockMatch = jsonBlocksRegex.exec(rawContent)) !== null) {
-    const jsonString = blockMatch[1];
+  while ((blockMatch = yamlBlocksRegex.exec(rawContent)) !== null) {
+    const yamlString = blockMatch[1];
     try {
-      const parsedJson = JSON.parse(jsonString);
+      const parsedYaml = yaml.parse(yamlString);
       // Validar o step against the schema
-      const validStep = StepSchema.parse(parsedJson);
+      const validStep = StepSchema.parse(parsedYaml);
       stepsMap[validStep.id] = validStep;
     } catch (e: any) {
-      console.warn("Um bloco JSON no markdown falhou no parse ou na validação Zod. Conteúdo:", jsonString);
-      throw new Error(`Falha ao processar metadados de Etapa do processo ${processId}: ${e.message}`);
+      console.warn("Um bloco YAML no markdown falhou no parse ou na validação Zod. Conteúdo:", yamlString);
+      const name = sourceName || "desconhecido (em memória)";
+      throw new Error(`Falha ao processar metadados de Etapa do arquivo ${name}: ${e.message}`);
     }
   }
 
@@ -70,6 +78,7 @@ export async function parseProcessMarkdown(processId: string, folderPath: string
     id: metadata["id"],
     version: metadata["version"],
     description: metadata["description"],
+    abreviacao: metadata["abreviacao"],
     initial_step: metadata["initial_step"],
     steps: stepsMap,
   };
@@ -80,4 +89,55 @@ export async function parseProcessMarkdown(processId: string, folderPath: string
     definition: finalDefinition,
     content: rawContent
   };
+}
+
+/**
+ * Encontra a versão mais recente de um Processo em uma pasta.
+ */
+export async function findLatestProcessVersion(processId: string, folderPath: string): Promise<string | null> {
+  try {
+    const files = await fs.readdir(folderPath);
+    // Procurar arquivos que cobrem processId_vX.Y.Z.md ou apenas processId.md (v0 implícita)
+    const matchingFiles = files.filter(f => f.startsWith(processId) && f.endsWith(".md"));
+    
+    if (matchingFiles.length === 0) return null;
+
+    // Assumimos formato {id}_v{version}.md ou apenas {id}.md
+    // Usa ordenação simples lexical reversa ou parse de semver (simplificado aqui)
+    const sorted = matchingFiles.sort((a, b) => b.localeCompare(a));
+    // Removemos o '.md' do final para retornar fileNameWithoutExt
+    return sorted[0].replace(".md", "");
+
+  } catch (err: any) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+/**
+ * Valida e Salva um novo Markdown de processo em disco.
+ * Exige versionamento (Falha se arquivo já existe).
+ */
+export async function saveProcessMarkdown(rawContent: string, folderPath: string): Promise<string> {
+  // 1. Testa parsing lógico
+  const { definition } = parseProcessMarkdownString(rawContent);
+  
+  // 2. Monta novo nome
+  const fileNameWithoutExt = `${definition.id}_v${definition.version}`;
+  const filePath = path.join(folderPath, `${fileNameWithoutExt}.md`);
+
+  // 3. Testa se arquivo exato com essa versão já existe
+  try {
+    await fs.access(filePath);
+    throw new Error(`O arquivo do processo na versão ${definition.version} já existe. Por favor, incremente a propriedade "version" no Frontmatter (Ex: v1.0.1) antes de salvar as modificações.`);
+  } catch (err: any) {
+    if (err.code !== "ENOENT") {
+      throw err; // Outro erro desconhecido
+    }
+    // ENOENT significa que não existe, podemos seguir para salvar!
+  }
+
+  // 4. Salva no Disco
+  await fs.writeFile(filePath, rawContent, "utf-8");
+  return fileNameWithoutExt;
 }

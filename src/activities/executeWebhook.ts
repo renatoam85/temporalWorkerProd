@@ -1,3 +1,4 @@
+import { Context } from "@temporalio/activity";
 import { ProcessStep, WorkflowState, ActivityResult } from "../types/workflow";
 
 /**
@@ -12,13 +13,23 @@ export async function executeWebhook({
 }): Promise<ActivityResult> {
   const url = step.parametros?.url;
   const method = step.parametros?.method || "GET";
-  const payload = step.parametros?.payload;
+  let payload = step.parametros?.payload || {};
 
   if (!url) {
     return { status: "falha", error: "URL não informada para o webhook" };
   }
 
   try {
+    const temporalInfo = Context.current().info;
+    const workflow_id = temporalInfo.workflowExecution.workflowId;
+    const next_step = step.navegacao?.default || "finalizado";
+
+    payload = {
+      ...payload,
+      workflow_id,
+      next_step
+    };
+
     const options: RequestInit = {
       method,
       headers: {
@@ -26,7 +37,7 @@ export async function executeWebhook({
       }
     };
 
-    if (payload && ["POST", "PUT", "PATCH"].includes(method)) {
+    if (["POST", "PUT", "PATCH"].includes(method)) {
       options.body = JSON.stringify(payload);
     }
 

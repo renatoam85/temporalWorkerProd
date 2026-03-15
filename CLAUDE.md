@@ -21,6 +21,8 @@ The application runs a unified entry point containing:
 
 - **Activity Isolation**: Each Activity MUST have its own dedicated source file. The file name MUST be identical to the activity name it implements (e.g. `extrair_dados_basicos.ts` for the `extrair_dados_basicos` activity).
 
+- **Human-Friendly MCP Responses**: When creating or updating tools for the MCP server that are intended to be read by Humans (via UI like Cursor or Claude Desktop), strive to format the output visually instead of dumping raw JSON. Use **Markdown Tables, Bullet Points, and Code Blocks** to enhance the User Experience.
+
 ---
 
 ## important

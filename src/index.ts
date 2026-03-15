@@ -40,12 +40,17 @@ async function main() {
          const connection = await Connection.connect({ address: TEMPORAL_SERVER_ADDRESS });
          const client = new Client({ connection });
 
-         const { definition, content } = await parseProcessMarkdown("processo_onboarding_teste", path.join(process.cwd(), "tempFiles"));
+         const { definition, content } = await parseProcessMarkdown("processo_onboarding_teste_v1.0.0", path.join(process.cwd(), "tempFiles"));
 
+         const workflowIdBase = definition.abreviacao || definition.id;
          const handle = await client.workflow.start("processOrchestrator", {
             args: [definition, content],
             taskQueue: ORCHESTRATION_QUEUE,
-            workflowId: `processo_onboarding_teste-${Date.now()}`,
+            workflowId: `${workflowIdBase}-${Date.now()}`,
+            searchAttributes: {
+              ProcessName: [definition.id],
+              ProcessVersion: [definition.version]
+            }
          });
 
          console.log(`Workflow iniciado: ${handle.workflowId}`);
