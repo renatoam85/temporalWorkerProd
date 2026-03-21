@@ -1,9 +1,12 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  isInitializeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
+import { randomUUID } from "node:crypto";
 import path from "path";
 import fs from "fs/promises";
 
@@ -321,14 +324,80 @@ export function createMcpServer() {
 export async function startMcpServer() {
   const app = express();
   app.use(cors());
-  // NÃO usar express.json() aqui! O SSEServerTransport precisa ler o body raw do request.
 
-  const mcpServer = createMcpServer();
+  // Armazena os transportes ativos por sessão (SSE e Streamable HTTP)
+  const transports: Record<string, SSEServerTransport | StreamableHTTPServerTransport> = {};
 
-  // Armazena os transportes ativos por sessão
-  const transports: Record<string, SSEServerTransport> = {};
+  //=============================================================================
+  // STREAMABLE HTTP TRANSPORT (para OpenAI Responses API)
+  //=============================================================================
+  // JSON body parser apenas para o endpoint /mcp
+  app.use('/mcp', express.json());
 
-  // Endpoint SSE — o client se conecta aqui para receber eventos
+  app.all("/mcp", async (req, res) => {
+    try {
+      const sessionId = req.headers['mcp-session-id'] as string | undefined;
+      let transport: StreamableHTTPServerTransport;
+
+      if (sessionId && transports[sessionId]) {
+        const existing = transports[sessionId];
+        if (existing instanceof StreamableHTTPServerTransport) {
+          transport = existing;
+        } else {
+          res.status(400).json({
+            jsonrpc: '2.0',
+            error: { code: -32000, message: 'Bad Request: Session uses a different transport protocol' },
+            id: null
+          });
+          return;
+        }
+      } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (sid) => {
+            console.log(`🔗 StreamableHTTP session initialized: ${sid}`);
+            transports[sid] = transport;
+          }
+        });
+
+        transport.onclose = () => {
+          const sid = transport.sessionId;
+          if (sid && transports[sid]) {
+            console.log(`🔌 StreamableHTTP session closed: ${sid}`);
+            delete transports[sid];
+          }
+        };
+
+        // Cada sessão Streamable HTTP recebe sua própria instância do MCP Server
+        const mcpServer = createMcpServer();
+        await mcpServer.connect(transport);
+      } else {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Bad Request: No valid session ID provided' },
+          id: null
+        });
+        return;
+      }
+
+      await transport.handleRequest(req, res, req.body);
+    } catch (error) {
+      console.error('Erro no endpoint /mcp:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null
+        });
+      }
+    }
+  });
+
+  //=============================================================================
+  // LEGACY SSE TRANSPORT (para Cursor, Claude Desktop, etc.)
+  //=============================================================================
+  const sseMcpServer = createMcpServer();
+
   app.get("/sse", async (req, res) => {
     const transport = new SSEServerTransport("/message", res);
     transports[transport.sessionId] = transport;
@@ -337,29 +406,30 @@ export async function startMcpServer() {
       delete transports[transport.sessionId];
     });
 
-    await mcpServer.connect(transport);
+    await sseMcpServer.connect(transport);
   });
 
-  // Endpoint para receber mensagens do client
   app.post("/message", async (req, res) => {
     const sessionId = req.query.sessionId as string;
-    const transport = transports[sessionId];
-    if (!transport) {
-      res.status(400).json({ error: "Sessão não encontrada. Conecte-se primeiro via /sse" });
+    const existing = transports[sessionId];
+    if (!existing || !(existing instanceof SSEServerTransport)) {
+      res.status(400).json({ error: "Sessão SSE não encontrada. Conecte-se primeiro via /sse" });
       return;
     }
-    await transport.handlePostMessage(req, res);
+    await existing.handlePostMessage(req, res);
   });
 
-  // Health check
+  //=============================================================================
+  // HEALTH CHECK
+  //=============================================================================
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", server: "projeto-temporal-mcp", transport: "sse" });
+    res.json({ status: "ok", server: "projeto-temporal-mcp", transport: ["sse", "streamable-http"] });
   });
 
   app.listen(MCP_PORT, () => {
-    console.log(`🚀 Servidor MCP (SSE) rodando em: http://localhost:${MCP_PORT}`);
-    console.log(`   → SSE Endpoint: http://localhost:${MCP_PORT}/sse`);
-    console.log(`   → Message Endpoint: http://localhost:${MCP_PORT}/message`);
+    console.log(`🚀 Servidor MCP rodando em: http://localhost:${MCP_PORT}`);
+    console.log(`   → Streamable HTTP: http://localhost:${MCP_PORT}/mcp  (OpenAI, Agents SDK)`);
+    console.log(`   → SSE (legado):    http://localhost:${MCP_PORT}/sse  (Cursor, Claude Desktop)`);
   });
 }
 
