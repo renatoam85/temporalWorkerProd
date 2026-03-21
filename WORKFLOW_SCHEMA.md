@@ -111,22 +111,53 @@ Recomenda-se adicionar explicações imediatamente cima/abaixo do JSON para guia
 
 ---
 
-## 8. Diretrizes e Melhores Práticas para Agentes de IA
+## 8. INSTRUÇÕES MANDATÓRIAS PARA AGENTES DE IA (System Prompt)
 
-Se você é um Agente de Inteligência Artificial incumbido de construir ou atualizar um Processo Markdown, siga as diretrizes abaixo para garantir que o processo seja ingerido com sucesso pelo orquestrador:
+**ATENÇÃO LLMs e Agentes Autônomos:** Você deve **ESTRITAMENTE** seguir as instruções e o modelo estrutural padrão ao gerar um arquivo Markdown de processo. O sistema de análise falhará criticamente se você não respeitar as formatações exatas demonstradas abaixo.
 
-### 8.1. Regras Estruturais Obrigatórias
-1. **Sempre use blocos de código markdown classificados apropriadamente**. Metadados do arquivo devem estar em bloco delimitado por `---` com conteúdo YAML no topo do documento. O bloco de definição de cada etapa deve ser `yaml` ou `json` com suas respectivas sintaxes (porém `json` puro ainda é garantido). **OBS**: Embora falemos sobre bloco `json` acima, nosso parser principal procura *oficialmente* por blocos ````yaml```` para analisar os steps. Recomendamos utilizar blocos ````yaml````.
-2. **Propriedade `id` das etapas:** Certifique-se de que os `id`s dos passos (ex: `step_inicio`, `step_consulta`) sejam **únicos** dentro do mesmo arquivo e correspondam perfeitamente aos apontamentos definidos no bloco de `navegacao`.
-3. **Validação Estrita:** Se faltar os campos obrigatórios em uma etapa (`id`, `tipo`, `navegacao`), a etapa falhará na hora do registro.
-4. **Versionamento:** Ao atualizar um processo existente que você baixou ou modificou, **Sempre incremente a propriedade `version` no Frontmatter** (ex: `1.0.0` » `1.0.1` ou `1.1.0`).
+### 8.1. Regras Estruturais Obrigatórias (CRÍTICO)
+1. **Frontmatter YAML Obrigatório:** O arquivo DEVE iniciar obrigatoriamente com um bloco delimitado por `---` contendo o YAML Frontmatter com todas as chaves exigidas (`id`, `version`, `description`, `initial_step`).
+2. **Código Markdown `yaml` para Etapas:** As definições em JSON/YAML de todas as etapas (steps) DEVEM ser convertidas para sintaxe pura YAML e DEVEM estar contidas dentro de um bloco de código de linguagem yaml (iniciado por ` ```yaml ` e finalizado por ` ``` `). **NUNCA** deixe o YAML/JSON solto no texto e **NUNCA** use listas de bullet points para descrever as chaves e valores sistêmicos de configuração do processo.
+3. **Ponteiros de Navegação Exatos:** Ao nomear os rumos do fluxo no campo `navegacao`, baseie-se nos resultados lógicos da atividade. Use exatamente os identificadores (`id`) dos próximos passos. Para sinalizar o fim global do processo sob aquela rota, use o valor estrito de string: `"finalizado"`.
 
-### 8.2. Atividades Automatizadas Disponíveis
-Se for utilizar uma etapa com `"tipo": "automatizada"`, você **deve** referenciar uma das seguintes atividades conhecidas no campo `"atividade"`:
-- **`extrair_dados_basicos`**: Utilizada para extrair/mockar dados iniciais na orquestração.
-*(Se precisar de novas lógicas em código, você precisará criá-las no Worker de Automação primeiro e registrá-las no `automation-registry.ts` antes de referenciá-las).*
+### 8.2. Template Estrito de Geração
+Sempre utilize este exato design de estrutura como sua fundação basal ao gerar as propostas de Processos Markdown. Ao redigir a instrução a um humano no HITL, detalhe antes do bloco yaml as chaves que ele deve retornar via ferramenta.
 
-### 8.3. Melhores Práticas
-- **Clareza para Etapas HITL:** Quando for do tipo `hitl_humano`, escreva as instruções fora do bloco JSON como se estivesse redigindo um POP (Procedimento Operacional Padrão). O humano lerá a página! Indique claramente na explicação quis chaves de status (ex: `"sucesso"`, `"rejeitado"`) o avaliador humano deverá retornar pelo MCP.
-- **Fail-fast:** Crie passos específicos para tratamento de erro e provisione na chave `navegacao`, como por exemplo enviar um e-mail / webhook alertando o problema se a atividade falhar.
-- **Resumo Detalhado (description):** O campo `description` do Frontmatter deve apontar o valor do processo, sua entrada de dados esperada e por onde encerra, para que o Humano e outras IAs saibam quando usá-lo.
+```markdown
+---
+id: "identificador_unico_sem_espaco"
+version: "1.0.0"
+description: "Explique em uma frase resumida a função do processo"
+initial_step: "step_inicial"
+---
+
+# Título do Modelo de Processo
+
+Adicione contexto geral da finalidade deste fluxo inteiro.
+
+### Etapa 1: Coletar de Dados
+Instrução direta ao usuário na tela sobre o que analisar ou informar nesta etapa. Para avançar usando as ferramentas do MCP, envie os status "sucesso" ou "rejeitado".
+
+\`\`\`yaml
+id: "step_inicial"
+tipo: "hitl_humano"
+navegacao:
+  sucesso: "step_aprovacao_final"
+  rejeitado: "finalizado"
+\`\`\`
+
+### Etapa 2: Processamento e Finalização Estrutural
+Mais orientações situacionais em linguajar natural para que o avaliador ou o debugador compreenda a sequência.
+
+\`\`\`yaml
+id: "step_aprovacao_final"
+tipo: "automatizada"
+atividade: "referencia_logica_worker"
+navegacao:
+  sucesso: "finalizado"
+\`\`\`
+```
+
+### 8.3. Atividades Automatizadas Disponíveis
+Se for configurar uma etapa utilizando `"tipo": "automatizada"`, você **deve** referenciar uma das seguintes atividades previamente conhecidas no servidor Worker da infraestrutura pelo campo `"atividade"`:
+- **`extrair_dados_basicos`**: Uma simulação padrão que extrai/mocka dados iniciais ou secundários dentro do Worker e salva no payload.

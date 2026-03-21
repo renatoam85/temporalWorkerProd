@@ -122,7 +122,7 @@ export function createMcpServer() {
         },
         {
           name: "get_process_schema",
-          description: "Retorna o documento WORKFLOW_SCHEMA.md contendo todas as regras, parâmetros e boas práticas estruturais para a criação de um processo em Markdown.",
+          description: "MANDATORY: Call this tool BEFORE attempting to create or modify a Process Markdown file. This returns the exact structural template, schema, syntax rules (YAML), and precise instructions on how to generate a valid process.",
           inputSchema: { type: "object", properties: {} }
         },
         {
