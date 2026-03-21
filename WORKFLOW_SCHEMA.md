@@ -161,3 +161,125 @@ navegacao:
 ### 8.3. Atividades Automatizadas Disponíveis
 Se for configurar uma etapa utilizando `"tipo": "automatizada"`, você **deve** referenciar uma das seguintes atividades previamente conhecidas no servidor Worker da infraestrutura pelo campo `"atividade"`:
 - **`extrair_dados_basicos`**: Uma simulação padrão que extrai/mocka dados iniciais ou secundários dentro do Worker e salva no payload.
+
+---
+
+## 9. Referência Completa de Campos (Validação Sistêmica)
+
+O sistema utiliza validação rígida (Zod) ao processar os arquivos Markdown. **Somente os campos listados abaixo são aceitos.** Qualquer campo diferente será **ignorado ou causará erro.**
+
+### 9.1. Campos do Frontmatter (entre `---`)
+
+| Campo | Obrigatório | Tipo | Descrição |
+| :--- | :---: | :--- | :--- |
+| `id` | ✅ Sim | string | Identificador único do processo (snake_case, sem espaços) |
+| `version` | ✅ Sim | string | Versão semântica. Ex: `"1.0.0"` |
+| `description` | ❌ Não | string | Breve explicação do que o processo resolve |
+| `abreviacao` | ❌ Não | string | Abreviação curta usada na geração de IDs de execução |
+| `initial_step` | ✅ Sim | string | O `id` exato da primeira etapa a ser executada |
+
+### 9.2. Campos de cada Etapa (dentro de blocos ` ```yaml ``` `)
+
+| Campo | Obrigatório | Tipo | Valores Aceitos / Descrição |
+| :--- | :---: | :--- | :--- |
+| `id` | ✅ Sim | string | Identificador único do step (snake_case) |
+| `tipo` | ✅ Sim | enum estrito | `hitl_humano`, `hitl_agente`, `webhook`, `automatizada` |
+| `atividade` | Condicional | string | **Obrigatório** se `tipo` = `automatizada`. Deve referenciar uma função registrada no Worker. |
+| `parametros` | ❌ Não | Record (chave: valor) | Parâmetros livres. Usado principalmente com `tipo: webhook` para `url`, `method`, `payload`. |
+| `navegacao` | ✅ Sim | Record (resultado: próximo_step) | Mapa de navegação. Chaves = status esperados. Valores = `id` do próximo step ou `"finalizado"`. |
+
+---
+
+## 10. Anti-Patterns — Erros Comuns que INVALIDAM o Processo
+
+> **ATENÇÃO: Os erros abaixo são os mais frequentes e causam falha total no sistema. Evite-os a todo custo.**
+
+### ❌ NUNCA coloque as etapas (steps) dentro do Frontmatter
+O Frontmatter contém **apenas** `id`, `version`, `description`, `abreviacao` e `initial_step`. As etapas são definidas em blocos ` ```yaml ``` ` separados no corpo do Markdown.
+
+### ❌ NUNCA use nomes de campos inventados
+Os seguintes campos **NÃO EXISTEM** no sistema e causarão erro:
+- `name`, `processId`, `type`, `parameters`, `nextSteps`, `condition`, `steps`, `enum`, `required`
+
+### ❌ NUNCA use listas YAML para definir steps
+Cada step é um **bloco individual** ` ```yaml ``` ` com campos planos, não uma lista `- id: ...` dentro de outro bloco.
+
+### ❌ NUNCA omita o campo `navegacao`
+Toda etapa deve ter o campo `navegacao` com pelo menos uma rota (ex: `sucesso: "finalizado"` ou `default: "finalizado"`).
+
+### ❌ NUNCA use `type: human` em vez de `tipo: hitl_humano`
+Os campos são em **português**. Use `tipo`, `navegacao`, `atividade`, `parametros` — nunca traduções em inglês.
+
+---
+
+## 11. Exemplo Completo Funcional (Referência)
+
+O arquivo abaixo é um processo **real e funcional** no sistema. Use-o como modelo basal ao gerar novos processos:
+
+````markdown
+---
+id: "processo_onboarding_teste"
+version: "1.0.0"
+description: "Teste de Onboarding de Cliente com validação sistêmica e aprovação HITL"
+abreviacao: "onboard"
+initial_step: "step_extrair_dados"
+---
+
+# Fluxo de Onboarding de Cliente
+
+Estas são as etapas para executar o processo na prova de conceito.
+
+### Etapa: step_extrair_dados
+```yaml
+id: step_extrair_dados
+tipo: automatizada
+atividade: extrair_dados_basicos
+navegacao:
+  sucesso: step_validacao_hitl
+```
+Esta etapa apenas simulará a criação de dados básicos pelo *automation-worker*.
+
+### Etapa: step_validacao_hitl
+```yaml
+id: step_validacao_hitl
+tipo: hitl_humano
+navegacao:
+  aprovado: step_notificar_conclusao
+  rejeitado: finalizado
+```
+**Para o atendente**: Verifique os dados básicos. Chame a ferramenta do MCP retornando o status final: "aprovado" ou "rejeitado".
+
+### Etapa: step_notificar_conclusao
+```yaml
+id: step_notificar_conclusao
+tipo: webhook
+parametros:
+  url: "https://echo.free.beeceptor.com"
+  method: POST
+  payload:
+    mensagem: "Onboarding concluído com sucesso."
+navegacao:
+  default: finalizado
+```
+````
+
+---
+
+## 12. Workflow Obrigatório de Geração (MANDATÓRIO para Agentes de IA)
+
+> **INSTRUÇÃO CRÍTICA:** Ao gerar um arquivo Markdown de Processo, você **DEVE** seguir obrigatoriamente o fluxo abaixo. Não apresente o resultado ao usuário antes de completar todos os passos.
+
+### Passo 1: Ler o Schema
+Chame a ferramenta `get_process_schema` para obter este documento com todas as regras atualizadas.
+
+### Passo 2: Gerar o Markdown
+Gere o Markdown seguindo estritamente o template da Seção 8.2 e o exemplo da Seção 11. Respeite todos os campos da Seção 9 e evite todos os anti-patterns da Seção 10.
+
+### Passo 3: Validar OBRIGATORIAMENTE
+Chame a ferramenta `validate_process_markdown` passando o Markdown gerado como parâmetro. Esta ferramenta executará o Parser e a validação Zod do sistema real.
+
+### Passo 4: Corrigir se necessário
+Se a validação retornar erros, corrija o Markdown de acordo com as mensagens de erro e chame `validate_process_markdown` novamente. Repita até obter sucesso.
+
+### Passo 5: Apresentar ao usuário
+**SOMENTE** após receber a confirmação de "Markdown válido!" da ferramenta de validação, apresente o resultado ao usuário ou prossiga com o registro via `register_process_markdown`.
