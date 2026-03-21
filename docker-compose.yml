@@ -1,0 +1,17 @@
+services:
+  temporal-worker:
+    build: .
+    container_name: temporal-worker
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "${MCP_PORT:-3100}:${MCP_PORT:-3100}"
+    volumes:
+      - hitl-data:/app/data
+      - process-files:/app/tempFiles
+    restart: unless-stopped
+
+volumes:
+  hitl-data:
+  process-files:

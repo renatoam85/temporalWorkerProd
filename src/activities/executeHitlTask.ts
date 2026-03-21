@@ -12,7 +12,7 @@ import {
 type Data = { pendingTasks: PendingHitlActivity[] };
 
 async function getDb() {
-  const dbPath = path.resolve(process.cwd(), "hitl-database.json");
+  const dbPath = path.resolve(process.cwd(), "data", "hitl-database.json");
   return JSONFilePreset<Data>(dbPath, { pendingTasks: [] });
 }
 

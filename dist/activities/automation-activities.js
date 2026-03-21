@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AUTOMATION_REGISTRY = exports.registerAutomation = exports.executeWebhook = exports.executeAutomation = void 0;
+var executeAutomation_1 = require("./executeAutomation");
+Object.defineProperty(exports, "executeAutomation", { enumerable: true, get: function () { return executeAutomation_1.executeAutomation; } });
+var executeWebhook_1 = require("./executeWebhook");
+Object.defineProperty(exports, "executeWebhook", { enumerable: true, get: function () { return executeWebhook_1.executeWebhook; } });
+var automation_registry_1 = require("./automation-registry");
+Object.defineProperty(exports, "registerAutomation", { enumerable: true, get: function () { return automation_registry_1.registerAutomation; } });
+Object.defineProperty(exports, "AUTOMATION_REGISTRY", { enumerable: true, get: function () { return automation_registry_1.AUTOMATION_REGISTRY; } });

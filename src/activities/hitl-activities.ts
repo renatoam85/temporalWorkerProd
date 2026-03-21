@@ -7,15 +7,15 @@ import {
 } from "../types/workflow";
 import path from "path";
 
-// Raiz do projeto derivada do __dirname para funcionar tanto via index.ts quanto via mcp-stdio.ts
-const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
+// Raiz do projeto: process.cwd() funciona tanto em dev (tsx) quanto em Docker (WORKDIR /app)
+const PROJECT_ROOT = process.cwd();
 
 // A estrutura do nosso banco.
 // db.data.pendingTasks guarda todas as tasks que aguardam serem pegas via MCP
 type Data = { pendingTasks: PendingHitlActivity[] };
 
 async function getDb() {
-  const dbPath = path.resolve(PROJECT_ROOT, "hitl-database.json");
+  const dbPath = path.resolve(PROJECT_ROOT, "data", "hitl-database.json");
   return JSONFilePreset<Data>(dbPath, { pendingTasks: [] });
 }
 

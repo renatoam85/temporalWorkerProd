@@ -7,8 +7,8 @@ import {
 import path from "path";
 import fs from "fs/promises";
 
-// Raiz do projeto derivada do __dirname para funcionar tanto via index.ts quanto via mcp-stdio.ts
-const PROJECT_ROOT = path.resolve(__dirname, "..");
+// Raiz do projeto: process.cwd() funciona tanto em dev (tsx) quanto em Docker (WORKDIR /app)
+const PROJECT_ROOT = process.cwd();
 
 import dotenv from "dotenv";
 dotenv.config({ path: path.join(PROJECT_ROOT, ".env") });
