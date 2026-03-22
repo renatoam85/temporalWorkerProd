@@ -76,10 +76,10 @@ export function parseProcessMarkdownString(rawContent: string, sourceName?: stri
   // 3. Estruturar Definition Final e validar
   const definitionPayload = {
     id: metadata["id"],
-    version: metadata["version"],
-    description: metadata["description"],
+    versao: metadata["versao"] || metadata["version"], // Suporte temporário para facilitar migração se necessário
+    descricao: metadata["descricao"] || metadata["description"],
     abreviacao: metadata["abreviacao"],
-    initial_step: metadata["initial_step"],
+    passo_inicial: metadata["passo_inicial"] || metadata["initial_step"],
     steps: stepsMap,
   };
 
@@ -123,13 +123,13 @@ export async function saveProcessMarkdown(rawContent: string, folderPath: string
   const { definition } = parseProcessMarkdownString(rawContent);
   
   // 2. Monta novo nome
-  const fileNameWithoutExt = `${definition.id}_v${definition.version}`;
+  const fileNameWithoutExt = `${definition.id}_v${definition.versao}`;
   const filePath = path.join(folderPath, `${fileNameWithoutExt}.md`);
 
   // 3. Testa se arquivo exato com essa versão já existe
   try {
     await fs.access(filePath);
-    throw new Error(`O arquivo do processo na versão ${definition.version} já existe. Por favor, incremente a propriedade "version" no Frontmatter (Ex: v1.0.1) antes de salvar as modificações.`);
+    throw new Error(`O arquivo do processo na versão ${definition.versao} já existe. Por favor, incremente a propriedade "versao" no Frontmatter (Ex: v1.0.1) antes de salvar as modificações.`);
   } catch (err: any) {
     if (err.code !== "ENOENT") {
       throw err; // Outro erro desconhecido

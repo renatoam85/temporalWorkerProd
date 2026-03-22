@@ -12,8 +12,8 @@ export async function executeWebhook({
   state: WorkflowState
 }): Promise<ActivityResult> {
   const url = step.parametros?.url;
-  const method = step.parametros?.method || "GET";
-  let payload = step.parametros?.payload || {};
+  const method = step.parametros?.metodo || step.parametros?.method || "GET";
+  let payload = step.parametros?.corpo || step.parametros?.payload || {};
 
   if (!url) {
     return { status: "falha", error: "URL não informada para o webhook" };

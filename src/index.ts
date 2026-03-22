@@ -3,7 +3,7 @@ import { startMcpServer } from "./mcp-server";
 import { startWorkers } from "./workers/index";
 import { Connection, Client } from "@temporalio/client";
 import { parseProcessMarkdown } from "./utils/markdown-parser";
-import { ORCHESTRATION_QUEUE } from "./workflows/process-orchestrator";
+import { QUEUE_ORCHESTRATION, WORKFLOW_TYPE_NAME } from "./types/workflow";
 import path from "path";
 
 // Expondo a porta do Temporal
@@ -43,13 +43,13 @@ async function main() {
          const { definition, content } = await parseProcessMarkdown("processo_onboarding_teste_v1.0.0", path.join(process.cwd(), "tempFiles"));
 
          const workflowIdBase = definition.abreviacao || definition.id;
-         const handle = await client.workflow.start("processOrchestrator", {
+         const handle = await client.workflow.start(WORKFLOW_TYPE_NAME, {
             args: [definition, content],
-            taskQueue: ORCHESTRATION_QUEUE,
+            taskQueue: QUEUE_ORCHESTRATION,
             workflowId: `${workflowIdBase}-${Date.now()}`,
             searchAttributes: {
               ProcessName: [definition.id],
-              ProcessVersion: [definition.version]
+              ProcessVersion: [definition.versao]
             }
          });
 

@@ -5,21 +5,21 @@ import {
   ProcessStep, 
   WorkflowState, 
   ActivityResult, 
-  PendingHitlActivity 
+  PendingHumanTask 
 } from "../types/workflow";
 
-// Estrutura do banco local para HITL
-type Data = { pendingTasks: PendingHitlActivity[] };
+// Estrutura do banco local para Tarefas Humanas
+type Data = { pendingTasks: PendingHumanTask[] };
 
 async function getDb() {
-  const dbPath = path.resolve(process.cwd(), "data", "hitl-database.json");
+  const dbPath = path.resolve(process.cwd(), "data", "human-tasks-database.json");
   return JSONFilePreset<Data>(dbPath, { pendingTasks: [] });
 }
 
 /**
- * Atividade principal HITL: Persiste a tarefa e dorme aguardando completamento externo via MCP.
+ * Atividade principal de Tarefa Humana: Persiste a tarefa e dorme aguardando completamento externo via MCP.
  */
-export async function executeHitlTask({
+export async function executeHumanTask({
   processId,
   step,
   state,
@@ -40,12 +40,12 @@ export async function executeHitlTask({
   );
 
   if (!alreadyExists) {
-    const pendingTask: PendingHitlActivity = {
+    const pendingTask: PendingHumanTask = {
       activityId: info.activityId,
       workflowExecutionId: info.workflowExecution.workflowId, 
       processId,
       stepId: step.id,
-      type: step.tipo as "hitl_humano" | "hitl_agente",
+      type: step.tipo as "tarefa_humana" | "tarefa_agente",
       context: state,
       markdownContent,
       createdAt: new Date().toISOString()

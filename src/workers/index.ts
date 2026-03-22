@@ -1,9 +1,10 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
 import * as orchestrationWorkflows from "../workflows/process-orchestrator";
-import { executeHitlTask } from "../activities/executeHitlTask";
+import { executeHumanTask } from "../activities/executeHumanTask";
 import { executeAutomation } from "../activities/executeAutomation";
 import { executeWebhook } from "../activities/executeWebhook";
-import { QUEUE_ORCHESTRATION, QUEUE_HITL, QUEUE_AUTOMATION } from "../types/workflow";
+import { executeAIAction } from "../activities/executeAIAction";
+import { QUEUE_ORCHESTRATION, QUEUE_HUMAN_TASK, QUEUE_AUTOMATION } from "../types/workflow";
 import path from "path";
 
 /**
@@ -30,12 +31,12 @@ export async function startWorkers(temporalAddress: string) {
     taskQueue: QUEUE_ORCHESTRATION,
   });
 
-  // 2. Worker HITL (Roda apenas as atividades de HITL)
-  const hitlWorker = await Worker.create({
+  // 2. Worker de Tarefa Humana (Roda apenas as atividades de Tarefa Humana)
+  const humanTaskWorker = await Worker.create({
     connection,
-    taskQueue: QUEUE_HITL,
+    taskQueue: QUEUE_HUMAN_TASK,
     activities: {
-      executeHitlTask
+      executeHumanTask
     }
   });
 
@@ -45,7 +46,8 @@ export async function startWorkers(temporalAddress: string) {
     taskQueue: QUEUE_AUTOMATION,
     activities: {
       executeAutomation,
-      executeWebhook
+      executeWebhook,
+      executeAIAction
     }
   });
 
@@ -54,7 +56,7 @@ export async function startWorkers(temporalAddress: string) {
   // Roda todos simultaneamente
   await Promise.all([
     orchestrationWorker.run(),
-    hitlWorker.run(),
+    humanTaskWorker.run(),
     automationWorker.run(),
   ]);
 }

@@ -3,22 +3,23 @@ import {
   ProcessDefinition, 
   WorkflowState, 
   ActivityResult, 
-  QUEUE_HITL, 
+  QUEUE_HUMAN_TASK, 
   QUEUE_AUTOMATION 
 } from "../types/workflow";
 
 // Mapeamos as atividades que vamos chamar do ponto de vista do Orchestrator
-import type * as executeHitlTaskFile from "../activities/executeHitlTask";
+import type * as executeHumanTaskFile from "../activities/executeHumanTask";
 import type * as executeAutomationFile from "../activities/executeAutomation";
 import type * as executeWebhookFile from "../activities/executeWebhook";
+import type * as executeAIActionFile from "../activities/executeAIAction";
 
 // O Workflow precisa de duas proxies para conversar com filas diferentes
-const hitlActivities = proxyActivities<typeof executeHitlTaskFile>({
-  taskQueue: QUEUE_HITL,
-  startToCloseTimeout: "30 days", // Hitl pode demorar bastantes dias para ser retornado
+const humanTaskActivities = proxyActivities<typeof executeHumanTaskFile>({
+  taskQueue: QUEUE_HUMAN_TASK,
+  startToCloseTimeout: "30 days", // Tarefa humana pode demorar bastantes dias para ser retornado
 });
 
-const automationActivities = proxyActivities<typeof executeAutomationFile & typeof executeWebhookFile>({
+const automationActivities = proxyActivities<typeof executeAutomationFile & typeof executeWebhookFile & typeof executeAIActionFile>({
   taskQueue: QUEUE_AUTOMATION,
   startToCloseTimeout: "5 minutes", // Automações devem rodar de forma síncrona/rápida 
   retry: {
@@ -28,24 +29,23 @@ const automationActivities = proxyActivities<typeof executeAutomationFile & type
   },
 });
 
-export const ORCHESTRATION_QUEUE = "orchestration-queue";
 
 /**
  * Workflow principal: Determina quais atividades a orquestração deve chamar
  * puramente baseado no processo de notação e definição lida.
  */
-export async function processOrchestrator(
+async function processOrchestratorImpl(
   processDefinition: ProcessDefinition, 
   markdownContent: string,
   initialData?: any
 ): Promise<WorkflowState> {
-  const { id: processId, steps, initial_step } = processDefinition;
-
-  log.info(`Iniciando orquestração determinística do Processo: ${processId} a partir do step ${initial_step}`);
-
+  const { id: processId, steps, passo_inicial } = processDefinition;
+ 
+  log.info(`Iniciando orquestração determinística do Processo: ${processId} a partir do step ${passo_inicial}`);
+ 
   const state: WorkflowState = {
     process_id: processId,
-    current_step: initial_step,
+    current_step: passo_inicial,
     history: {},
     is_completed: false
   };
@@ -73,10 +73,10 @@ export async function processOrchestrator(
       log.info(`[Step: ${step.id}] Navegando tipo: ${step.tipo} (Fila alvo em andamento...)`);
 
       // Decisão Condicional sobre QUAL Atividade de QUAL Worker chamar
-      if (step.tipo === "hitl_humano" || step.tipo === "hitl_agente") {
-        // Envia para o hitlWorker. 
+      if (step.tipo === "tarefa_humana" || step.tipo === "tarefa_agente") {
+        // Envia para o humanTaskWorker. 
         // Ele vai adicionar a tarefa a um banco/storage e colocar a PromiseActivity() async em loop
-        result = await hitlActivities.executeHitlTask({
+        result = await humanTaskActivities.executeHumanTask({
           processId,
           step,
           state,
@@ -95,6 +95,13 @@ export async function processOrchestrator(
         result = await automationActivities.executeWebhook({
           step,
           state
+        });
+      } else if (step.tipo === "executar_com_ia") {
+        result = await automationActivities.executeAIAction({
+          processId,
+          step,
+          state,
+          markdownContent
         });
       } else {
         throw new Error(`Tipo de atividade desconhecido: ${step.tipo}`);
@@ -117,9 +124,9 @@ export async function processOrchestrator(
     // Avalia regra de navegação para decidir o próximo State
     let nextStepId = step.navegacao[result.status];
     
-    // Se não encontrou do status específico e há um "default" mapping na definição de navegação do Notion
-    if (!nextStepId && step.navegacao["default"]) {
-      nextStepId = step.navegacao["default"];
+    // Se não encontrou do status específico e há um "padrao" mapping na definição de navegação
+    if (!nextStepId && step.navegacao["padrao"]) {
+      nextStepId = step.navegacao["padrao"];
     }
 
     // Se as regras de navegação determinam "finalizado" (palavra chave reservada)
@@ -137,3 +144,7 @@ export async function processOrchestrator(
   log.info(`Orquestração Finalizada. Process: ${processId}`);
   return state;
 }
+
+// Registros dos Workflow Types pro Temporal (um para Prod, outro para Test)
+export const Processo = processOrchestratorImpl;
+export const Processo_teste = processOrchestratorImpl;

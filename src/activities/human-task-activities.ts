@@ -3,7 +3,7 @@ import { JSONFilePreset } from "lowdb/node";
 
 import { 
   ActivityResult, 
-  PendingHitlActivity 
+  PendingHumanTask 
 } from "../types/workflow";
 import path from "path";
 
@@ -12,10 +12,10 @@ const PROJECT_ROOT = process.cwd();
 
 // A estrutura do nosso banco.
 // db.data.pendingTasks guarda todas as tasks que aguardam serem pegas via MCP
-type Data = { pendingTasks: PendingHitlActivity[] };
+type Data = { pendingTasks: PendingHumanTask[] };
 
 async function getDb() {
-  const dbPath = path.resolve(PROJECT_ROOT, "data", "hitl-database.json");
+  const dbPath = path.resolve(PROJECT_ROOT, "data", "human-tasks-database.json");
   return JSONFilePreset<Data>(dbPath, { pendingTasks: [] });
 }
 
@@ -23,12 +23,12 @@ async function getDb() {
 // FUNÇÕES UTILITÁRIAS PARA O MCP SERVER (Fora do Contexto Temporal)
 // ------------------------------------------------------------- 
 
-export async function getPendingHitlTasks(): Promise<PendingHitlActivity[]> {
+export async function getPendingHumanTasks(): Promise<PendingHumanTask[]> {
   const db = await getDb();
   return db.data.pendingTasks;
 }
 
-export async function completeHitlTask(
+export async function completeHumanTask(
   workflowExecutionId: string, 
   activityId: string, 
   resultStatus: string, 
@@ -44,7 +44,7 @@ export async function completeHitlTask(
   );
 
   if (index === -1) {
-    throw new Error(`Atividade HITL ${activityId} não encontrada pendente para execução.`);
+    throw new Error(`Tarefa humana ${activityId} não encontrada pendente para execução.`);
   }
 
   // PRIMEIRO: Sinalizar o Temporal com o resultado ANTES de remover do banco.
@@ -70,8 +70,8 @@ export async function completeHitlTask(
     );
   } catch (err: any) {
     throw new Error(
-      `Falha ao sinalizar orquestrador para a atividade ${activityId} do processo ${workflowExecutionId}. ` +
-      `A atividade permanece pendente na lista. Detalhes: ${err.message}`
+      `Falha ao sinalizar orquestrador para a tarefa ${activityId} do processo ${workflowExecutionId}. ` +
+      `A tarefa permanece pendente na lista. Detalhes: ${err.message}`
     );
   }
 

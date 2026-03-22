@@ -18,10 +18,10 @@ dotenv.config({ path: path.join(PROJECT_ROOT, ".env") });
 
 import express from "express";
 import cors from "cors";
-import { getPendingHitlTasks, completeHitlTask } from "./activities/hitl-activities";
+import { getPendingHumanTasks, completeHumanTask } from "./activities/human-task-activities";
 import { Connection, Client } from "@temporalio/client";
 import { parseProcessMarkdown, parseProcessMarkdownString, saveProcessMarkdown, findLatestProcessVersion } from "./utils/markdown-parser";
-import { ORCHESTRATION_QUEUE } from "./workflows/process-orchestrator";
+import { QUEUE_ORCHESTRATION, WORKFLOW_TYPE_NAME } from "./types/workflow";
 
 const MCP_PORT = Number(process.env.MCP_PORT) || 3100;
 const TEMPORAL_SERVER_ADDRESS = process.env.TEMPORAL_SERVER_IP 
@@ -55,8 +55,8 @@ export function createMcpServer() {
     return {
       tools: [
         {
-          name: "list_hitl_activities",
-          description: "Lista todas as atividades Human-In-The-Loop ou Agent-In-The-Loop pendentes de resolução retornando uma Tabela Markdown estruturada para visualização humana.",
+          name: "list_human_tasks",
+          description: "Lista todas as tarefas humanas (Human Task) ou de agente (Agent Task) pendentes de resolução retornando uma Tabela Markdown estruturada para visualização.",
           inputSchema: {
             type: "object",
             properties: {},
@@ -105,7 +105,7 @@ export function createMcpServer() {
             type: "object",
              properties: {
               processId: { type: "string", description: "O ID único do processo definido no frontmatter." },
-              version: { type: "string", description: "(Opcional) A versão exata a iniciar. Ex: '1.0.0'. Se omitido, busca a mais recente." },
+              versao: { type: "string", description: "(Opcional) A versão exata a iniciar. Ex: '1.0.0'. Se omitido, busca a mais recente." },
               initialData: { type: "string", description: "(Opcional) Payload JSON com dados iniciais para a orquestração." }
             },
             required: ["processId"]
@@ -151,8 +151,8 @@ export function createMcpServer() {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    if (name === "list_hitl_activities") {
-      const tasks = await getPendingHitlTasks();
+    if (name === "list_human_tasks") {
+      const tasks = await getPendingHumanTasks();
       
       if (tasks.length === 0) {
         return {
@@ -176,7 +176,7 @@ export function createMcpServer() {
 
     if (name === "start_activity") {
       const workflowExecId = String(args?.workflowExecutionId);
-      const tasks = await getPendingHitlTasks();
+      const tasks = await getPendingHumanTasks();
       const task = tasks.find(t => t.workflowExecutionId === workflowExecId);
 
       if (!task) {
@@ -193,7 +193,7 @@ export function createMcpServer() {
       const status = String(args?.resultStatus);
       
       // Resolve o activityId automaticamente a partir do banco
-      const tasks = await getPendingHitlTasks();
+      const tasks = await getPendingHumanTasks();
       const task = tasks.find(t => t.workflowExecutionId === workflowId);
       if (!task) {
         throw new Error(`Atividade para a execução ${workflowId} não encontrada pendente.`);
@@ -210,7 +210,7 @@ export function createMcpServer() {
       }
 
       try {
-        await completeHitlTask(workflowId, activityId, status, objectData);
+        await completeHumanTask(workflowId, activityId, status, objectData);
         return {
            content: [{ type: "text", text: `Atividade da execução ${workflowId} atualizada com STATUS: ${status} e resultado enviado para o Orquestrador.` }],
         };
@@ -221,7 +221,7 @@ export function createMcpServer() {
 
     if (name === "start_process") {
       const processId = String(args?.processId);
-      const version = args?.version ? String(args.version) : null;
+      const versao = args?.versao ? String(args.versao) : null;
       let initialData = undefined;
       
       if (args?.initialData) {
@@ -231,7 +231,7 @@ export function createMcpServer() {
 
       const folderPath = path.join(PROJECT_ROOT, "tempFiles");
       
-      let targetVersion = version;
+      let targetVersion = versao;
       if (!targetVersion) {
          targetVersion = await findLatestProcessVersion(processId, folderPath);
          if (!targetVersion) {
@@ -252,13 +252,13 @@ export function createMcpServer() {
       const workflowIdBase = definition.abreviacao || definition.id;
       const runId = `${workflowIdBase}-${Date.now()}`;
       
-      const handle = await client.workflow.start("processOrchestrator", {
+      const handle = await client.workflow.start(WORKFLOW_TYPE_NAME, {
         args: [definition, content, initialData],
-        taskQueue: ORCHESTRATION_QUEUE,
+        taskQueue: QUEUE_ORCHESTRATION,
         workflowId: runId,
         searchAttributes: {
           ProcessName: [definition.id],
-          ProcessVersion: [definition.version]
+          ProcessVersion: [definition.versao]
         }
       });
 
@@ -293,7 +293,7 @@ export function createMcpServer() {
        try {
          const { definition } = parseProcessMarkdownString(mdContent, "validação-memória");
          return {
-           content: [{ type: "text", text: `Markdown válido! Processo: ${definition.id} v${definition.version}. Pode prosseguir para registrá-lo.` }]
+           content: [{ type: "text", text: `Markdown válido! Processo: ${definition.id} v${definition.versao}. Pode prosseguir para registrá-lo.` }]
          };
        } catch (e: any) {
          return {

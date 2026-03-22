@@ -11,12 +11,12 @@ O arquivo sempre deve começar com um **Frontmatter YAML** obrigatório, delimit
 ```yaml
 ---
 id: "meu_processo_v1"
-version: "1.0.0"
-description: "Breve explicação sobre o que o processo resolve"
-initial_step: "step_inicial"
+versao: "1.0.0"
+descricao: "Breve explicação sobre o que o processo resolve"
+passo_inicial: "step_inicial"
 ---
 ```
-> **Nota:** O `initial_step` diz ao orquestrador exatamente por qual passo o workflow deve começar.
+> **Nota:** O `passo_inicial` diz ao orquestrador exatamente por qual passo o workflow deve começar.
 
 ---
 
@@ -28,13 +28,13 @@ Porém, para registrar uma etapa rastreável sistemicamente, você **deve criar 
 ### Modelo de um bloco de Etapa:
 ```yaml
 id: "identificador_unico_do_passo"
-tipo: "hitl_humano"
+tipo: "tarefa_humana"
 atividade: "nome_da_atividade_registrada" # (Opcional)
 parametros: # (Opcional - Pode conter dados soltos)
   chave: "valor"
 navegacao:
   status_esperado: "id_do_proximo_passo"
-  default: "id_do_passo_fallback"
+  padrao: "id_do_passo_fallback"
 ```
 
 ---
@@ -47,8 +47,9 @@ O campo `tipo` obriga a etapa a ser roteada para o Worker correto. Atualmente su
 | :--- | :--- | :--- |
 | **`automatizada`** | `automation-queue` | Roda código nativo sem interação externa. **Obriga** o preenchimento do campo `"atividade"` com uma chave de função previamente registrada no sistema. |
 | **`webhook`** | `automation-queue` | Dispara um Webhook nativo sem código adicional. A etapa espera que a requisição finalize. Usa a URL do bloco `parametros`. |
-| **`hitl_humano`** | `hitl-queue` | (*Human in the Loop*) Interrompe a orquestração e coloca a etapa em modo pendente no banco local. Um Humano usando o Claude Desktop/Cursor listará as pendências via MCP e fechará a tarefa. |
-| **`hitl_agente`** | `hitl-queue` | (*Agent in the Loop*) Identico ao humano, porém voltado a ser executado por fluxos de agentes autônomos por webhook em lote via MCP. |
+| **`tarefa_humana`** | `human-task-queue` | (*Tarefa Humana*) Interrompe a orquestração e coloca a etapa em modo pendente no banco local. Um Humano usando o Claude Desktop/Cursor listará as pendências via MCP e fechará a tarefa. |
+| **`tarefa_agente`** | `human-task-queue` | (*Tarefa de Agente*) Identico ao humano, porém voltado a ser executado por fluxos de agentes autônomos por webhook em lote via MCP. |
+| **`executar_com_ia`** | `automation-queue` | (*IA Nativa*) O Worker chama diretamente a OpenAI para atuar na etapa, usando o contexto e a documentação. |
 
 ---
 
@@ -75,8 +76,8 @@ id: "step_comunicador"
 tipo: "webhook"
 parametros:
   url: "https://api.meusistema.com.br/update"
-  method: "POST"
-  payload:
+  metodo: "POST"
+  corpo:
     processamento: "Concluido com sucesso"
 navegacao:
   sucesso: "finalizado"
@@ -94,20 +95,20 @@ O sistema avaliará o status retornado pela atividade para definir o próximo st
 navegacao:
   sucesso: "step_envio_email"
   falha: "step_revisao_manual"
-  default: "finalizado"
+  padrao: "finalizado"
 ```
 
 ### Regras do Roteamento
 - Você define as chaves de acordo com os _Status_ que espera de retorno. Se a automação ou o humano sinalizarem `sucesso`, o fluxo vai para a etapa `step_envio_email`.
 - Usamos a palavra especial **`"finalizado"`** para designar que, a partir desse retorno, o workflow está completamente encerrado e finalizado com sucesso.
-- O campo **`"default"`** pode ser utilizado como uma rota *fallback* (usado caso o retorno obtido não seja uma das chaves explícitas).
+- O campo **`"padrao"`** pode ser utilizado como uma rota *fallback* (usado caso o retorno obtido não seja uma das chaves explícitas).
 
 ---
 
 ## 7. Contexto Contextual para o Agente ou Humano
 
 Tudo o que for inserido no corpo do Markdown, *de fora do Bloco JSON*, é contexto qualitativo que enriquece os dados.
-Recomenda-se adicionar explicações imediatamente cima/abaixo do JSON para guiar quem está avaliando aquela etapa HITL. Esse texto será enviado integralmente via ferramenta do Servidor MCP `start_activity`.
+Recomenda-se adicionar explicações imediatamente cima/abaixo do JSON para guiar quem está avaliando aquela etapa de Tarefa Humana. Esse texto será enviado integralmente via ferramenta do Servidor MCP `start_activity`.
 
 ---
 
@@ -116,19 +117,21 @@ Recomenda-se adicionar explicações imediatamente cima/abaixo do JSON para guia
 **ATENÇÃO LLMs e Agentes Autônomos:** Você deve **ESTRITAMENTE** seguir as instruções e o modelo estrutural padrão ao gerar um arquivo Markdown de processo. O sistema de análise falhará criticamente se você não respeitar as formatações exatas demonstradas abaixo.
 
 ### 8.1. Regras Estruturais Obrigatórias (CRÍTICO)
-1. **Frontmatter YAML Obrigatório:** O arquivo DEVE iniciar obrigatoriamente com um bloco delimitado por `---` contendo o YAML Frontmatter com todas as chaves exigidas (`id`, `version`, `description`, `initial_step`).
+1. **Frontmatter YAML Obrigatório:** O arquivo DEVE iniciar obrigatoriamente com um bloco delimitado por `---` contendo o YAML Frontmatter com todas as chaves exigidas (`id`, `versao`, `descricao`, `passo_inicial`).
 2. **Código Markdown `yaml` para Etapas:** As definições em JSON/YAML de todas as etapas (steps) DEVEM ser convertidas para sintaxe pura YAML e DEVEM estar contidas dentro de um bloco de código de linguagem yaml (iniciado por ` ```yaml ` e finalizado por ` ``` `). **NUNCA** deixe o YAML/JSON solto no texto e **NUNCA** use listas de bullet points para descrever as chaves e valores sistêmicos de configuração do processo.
 3. **Ponteiros de Navegação Exatos:** Ao nomear os rumos do fluxo no campo `navegacao`, baseie-se nos resultados lógicos da atividade. Use exatamente os identificadores (`id`) dos próximos passos. Para sinalizar o fim global do processo sob aquela rota, use o valor estrito de string: `"finalizado"`.
+4. **Encapsulamento Final de Entrega:** Ao gerar o markdown final para o usuário humano, sempre envolva o documento inteiro em um bloco delimitado por QUATRO crases (` ````markdown `) para que os blocos yaml internos não quebrem a formatação.
 
 ### 8.2. Template Estrito de Geração
-Sempre utilize este exato design de estrutura como sua fundação basal ao gerar as propostas de Processos Markdown. Ao redigir a instrução a um humano no HITL, detalhe antes do bloco yaml as chaves que ele deve retornar via ferramenta.
+Sempre utilize este exato design de estrutura como sua fundação basal ao gerar as propostas de Processos Markdown. Ao redigir a instrução a um humano na Tarefa Humana, detalhe antes do bloco yaml as chaves que ele deve retornar via ferramenta.
 
 ```markdown
 ---
-id: "identificador_unico_sem_espaco"
 version: "1.0.0"
-description: "Explique em uma frase resumida a função do processo"
-initial_step: "step_inicial"
+id: "identificador_unico_sem_espaco"
+versao: "1.0.0"
+descricao: "Explique em uma frase resumida a função do processo"
+passo_inicial: "step_inicial"
 ---
 
 # Título do Modelo de Processo
@@ -140,7 +143,7 @@ Instrução direta ao usuário na tela sobre o que analisar ou informar nesta et
 
 \`\`\`yaml
 id: "step_inicial"
-tipo: "hitl_humano"
+tipo: "tarefa_humana"
 navegacao:
   sucesso: "step_aprovacao_final"
   rejeitado: "finalizado"
@@ -164,6 +167,29 @@ Se for configurar uma etapa utilizando `"tipo": "automatizada"`, você **deve** 
 
 ---
 
+## 5. Parâmetros de IA (`executar_com_ia`)
+
+Para etapas do tipo `executar_com_ia`, você pode passar parâmetros adicionais para integrar com servidores MCP externos:
+
+| Parâmetro | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `servidor_mcp` | string | URL do servidor MCP (ex: ngrok ou IP fixo). |
+| `id_token` | string | Nome da chave no arquivo `.env` que contém o token de autenticação. |
+
+**Exemplo:**
+```yaml
+id: "step_analise_ia"
+tipo: "executar_com_ia"
+parametros:
+  servidor_mcp: "https://meu-servidor.ngrok-free.app"
+  id_token: "MEU_TOKEN_MCP"
+navegacao:
+  sucesso: "finalizado"
+```
+*O Worker buscará o valor de `MEU_TOKEN_MCP` no ambiente e enviará para a IA como uma ferramenta nativa do tipo `mcp`.*
+
+---
+
 ## 9. Referência Completa de Campos (Validação Sistêmica)
 
 O sistema utiliza validação rígida (Zod) ao processar os arquivos Markdown. **Somente os campos listados abaixo são aceitos.** Qualquer campo diferente será **ignorado ou causará erro.**
@@ -173,19 +199,19 @@ O sistema utiliza validação rígida (Zod) ao processar os arquivos Markdown. *
 | Campo | Obrigatório | Tipo | Descrição |
 | :--- | :---: | :--- | :--- |
 | `id` | ✅ Sim | string | Identificador único do processo (snake_case, sem espaços) |
-| `version` | ✅ Sim | string | Versão semântica. Ex: `"1.0.0"` |
-| `description` | ❌ Não | string | Breve explicação do que o processo resolve |
+| `versao` | ✅ Sim | string | Versão semântica. Ex: `"1.0.0"` |
+| `descricao` | ❌ Não | string | Breve explicação do que o processo resolve |
 | `abreviacao` | ❌ Não | string | Abreviação curta usada na geração de IDs de execução |
-| `initial_step` | ✅ Sim | string | O `id` exato da primeira etapa a ser executada |
+| `passo_inicial` | ✅ Sim | string | O `id` exato da primeira etapa a ser executada |
 
 ### 9.2. Campos de cada Etapa (dentro de blocos ` ```yaml ``` `)
 
 | Campo | Obrigatório | Tipo | Valores Aceitos / Descrição |
 | :--- | :---: | :--- | :--- |
 | `id` | ✅ Sim | string | Identificador único do step (snake_case) |
-| `tipo` | ✅ Sim | enum estrito | `hitl_humano`, `hitl_agente`, `webhook`, `automatizada` |
+| `tipo` | ✅ Sim | enum estrito | `tarefa_humana`, `tarefa_agente`, `webhook`, `automatizada`, `executar_com_ia` |
 | `atividade` | Condicional | string | **Obrigatório** se `tipo` = `automatizada`. Deve referenciar uma função registrada no Worker. |
-| `parametros` | ❌ Não | Record (chave: valor) | Parâmetros livres. Usado principalmente com `tipo: webhook` para `url`, `method`, `payload`. |
+| `parametros` | ❌ Não | Record (chave: valor) | Parâmetros livres. Usado com `tipo: webhook` para `url`, `metodo`, `corpo` ou com `tipo: executar_com_ia` para `servidor_mcp` e `id_token`. |
 | `navegacao` | ✅ Sim | Record (resultado: próximo_step) | Mapa de navegação. Chaves = status esperados. Valores = `id` do próximo step ou `"finalizado"`. |
 
 ---
@@ -195,7 +221,7 @@ O sistema utiliza validação rígida (Zod) ao processar os arquivos Markdown. *
 > **ATENÇÃO: Os erros abaixo são os mais frequentes e causam falha total no sistema. Evite-os a todo custo.**
 
 ### ❌ NUNCA coloque as etapas (steps) dentro do Frontmatter
-O Frontmatter contém **apenas** `id`, `version`, `description`, `abreviacao` e `initial_step`. As etapas são definidas em blocos ` ```yaml ``` ` separados no corpo do Markdown.
+O Frontmatter contém **apenas** `id`, `versao`, `descricao`, `abreviacao` e `passo_inicial`. As etapas são definidas em blocos ` ```yaml ``` ` separados no corpo do Markdown.
 
 ### ❌ NUNCA use nomes de campos inventados
 Os seguintes campos **NÃO EXISTEM** no sistema e causarão erro:
@@ -205,9 +231,9 @@ Os seguintes campos **NÃO EXISTEM** no sistema e causarão erro:
 Cada step é um **bloco individual** ` ```yaml ``` ` com campos planos, não uma lista `- id: ...` dentro de outro bloco.
 
 ### ❌ NUNCA omita o campo `navegacao`
-Toda etapa deve ter o campo `navegacao` com pelo menos uma rota (ex: `sucesso: "finalizado"` ou `default: "finalizado"`).
+Toda etapa deve ter o campo `navegacao` com pelo menos uma rota (ex: `sucesso: "finalizado"` ou `padrao: "finalizado"`).
 
-### ❌ NUNCA use `type: human` em vez de `tipo: hitl_humano`
+### ❌ NUNCA use `type: human` em vez de `tipo: tarefa_humana`
 Os campos são em **português**. Use `tipo`, `navegacao`, `atividade`, `parametros` — nunca traduções em inglês.
 
 ---
@@ -219,10 +245,10 @@ O arquivo abaixo é um processo **real e funcional** no sistema. Use-o como mode
 ````markdown
 ---
 id: "processo_onboarding_teste"
-version: "1.0.0"
-description: "Teste de Onboarding de Cliente com validação sistêmica e aprovação HITL"
+versao: "1.0.0"
+descricao: "Teste de Onboarding de Cliente com validação sistêmica e aprovação via Tarefa Humana"
 abreviacao: "onboard"
-initial_step: "step_extrair_dados"
+passo_inicial: "step_extrair_dados"
 ---
 
 # Fluxo de Onboarding de Cliente
@@ -235,14 +261,10 @@ id: step_extrair_dados
 tipo: automatizada
 atividade: extrair_dados_basicos
 navegacao:
-  sucesso: step_validacao_hitl
-```
-Esta etapa apenas simulará a criação de dados básicos pelo *automation-worker*.
-
-### Etapa: step_validacao_hitl
+### Etapa: step_validacao_humana
 ```yaml
-id: step_validacao_hitl
-tipo: hitl_humano
+id: step_validacao_humana
+tipo: tarefa_humana
 navegacao:
   aprovado: step_notificar_conclusao
   rejeitado: finalizado
@@ -255,11 +277,11 @@ id: step_notificar_conclusao
 tipo: webhook
 parametros:
   url: "https://echo.free.beeceptor.com"
-  method: POST
-  payload:
+  metodo: POST
+  corpo:
     mensagem: "Onboarding concluído com sucesso."
 navegacao:
-  default: finalizado
+  padrao: finalizado
 ```
 ````
 
@@ -282,4 +304,6 @@ Chame a ferramenta `validate_process_markdown` passando o Markdown gerado como p
 Se a validação retornar erros, corrija o Markdown de acordo com as mensagens de erro e chame `validate_process_markdown` novamente. Repita até obter sucesso.
 
 ### Passo 5: Apresentar ao usuário
-**SOMENTE** após receber a confirmação de "Markdown válido!" da ferramenta de validação, apresente o resultado ao usuário ou prossiga com o registro via `register_process_markdown`.
+**SOMENTE** após receber a confirmação de "Markdown válido!" da ferramenta de validação, apresente o resultado ao usuário ou prossiga com o registro via `register_process_markdown`. 
+
+**Dica de Formatação:** Coloque o documento inteiro dentro de um bloco delimitado por QUATRO crases (` ````markdown `) para que os blocos yaml internos não quebrem a formatação.

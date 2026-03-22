@@ -2,3 +2,17 @@ node_modules/
 .env
 tempFiles/
 data/
+dist/
+tmp/
+*.log
+*.docx
+*.html
+history.json
+history-utf8.json
+check.ts
+dump_history.ts
+validate-all.ts
+validate-test.ts
+test-ai.ts
+test-mcp-client.ts
+validation_result.txt

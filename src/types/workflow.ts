@@ -1,16 +1,24 @@
 import { z } from "zod";
 
+const isProd = process.env.NODE_ENV === "production";
+const suffix = isProd ? "" : "-teste";
+
 // Valores aceitos para fila
-export const QUEUE_ORCHESTRATION = "orchestration-queue";
-export const QUEUE_HITL = "hitl-queue";
-export const QUEUE_AUTOMATION = "automation-queue";
+export const QUEUE_ORCHESTRATION = `orchestration-queue${suffix}`;
+export const QUEUE_HUMAN_TASK = `human-task-queue${suffix}`;
+export const QUEUE_AUTOMATION = `automation-queue${suffix}`;
+
+// Tipo de Workflow Registrado no Temporal
+export const WORKFLOW_TYPE_NAME = isProd ? "Processo" : "Processo_teste";
+
 
 // Enumeração de tipos de etapas válidos
 export const StepTypeEnum = z.enum([
-  "hitl_humano",
-  "hitl_agente",
+  "tarefa_humana",
+  "tarefa_agente",
   "webhook",
   "automatizada",
+  "executar_com_ia",
 ]);
 export type StepType = z.infer<typeof StepTypeEnum>;
 
@@ -29,10 +37,10 @@ export type ProcessStep = z.infer<typeof StepSchema>;
 
 export const ProcessDefinitionSchema = z.object({
   id: z.string(),
-  version: z.string(),
-  description: z.string().optional(),
+  versao: z.string(),
+  descricao: z.string().optional(),
   abreviacao: z.string().optional(),
-  initial_step: z.string(),
+  passo_inicial: z.string(),
   steps: z.record(z.string(), StepSchema), 
   // steps é um dicionário facilitado: { "id_do_step": StepSchema }
 });
@@ -53,13 +61,13 @@ export interface WorkflowState {
   is_completed: boolean;
 }
 
-// Interface estruturada para o que fica pendente no banco HITL
-export interface PendingHitlActivity {
+// Interface estruturada para o que fica pendente no banco de Tarefas Humanas
+export interface PendingHumanTask {
   activityId: string;           // Temporal Activity ID gerado
   workflowExecutionId: string;  // Workflow ID gerado pelo Temporal
   processId: string;            // ID semântico do processo (ex: processo_onboarding)
-  stepId: string;               // ID da etapa HITL sendo tocada
-  type: "hitl_humano" | "hitl_agente";
+  stepId: string;               // ID da etapa de Tarefa Humana sendo tocada
+  type: "tarefa_humana" | "tarefa_agente";
   context: WorkflowState;       // Estado acumulado até este momento
   markdownContent?: string;     // Todo documento ou a parte relevante exportada pro MCP
   createdAt: string;            // ISO Date
