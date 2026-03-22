@@ -161,12 +161,12 @@ export function createMcpServer() {
       }
 
       // Formatamos a saída como Tabela Markdown para melhor UX no Client (Cursor/Claude Desktop)
-      let markdownTable = "| Activity ID | Execution ID | Process ID | Step ID | Type | Criada Em |\n";
-      markdownTable += "|---|---|---|---|---|---|\n";
+      let markdownTable = "| Activity ID | Execution ID | Process ID | Workflow Type | Env | Step ID | Type | Criada Em |\n";
+      markdownTable += "|---|---|---|---|---|---|---|---|\n";
       
       tasks.forEach(t => {
         const dateStr = t.createdAt ? new Date(t.createdAt).toISOString() : "N/A";
-        markdownTable += `| \`${t.activityId}\` | \`${t.workflowExecutionId}\` | ${t.processId} | ${t.stepId} | ${t.type} | ${dateStr} |\n`;
+        markdownTable += `| \`${t.activityId}\` | \`${t.workflowExecutionId}\` | ${t.processId} | ${t.workflowType || 'N/A'} | ${t.envMode || 'N/A'} | ${t.stepId} | ${t.type} | ${dateStr} |\n`;
       });
 
       return {
@@ -274,6 +274,7 @@ export function createMcpServer() {
        const description = await handle.describe();
        
        let statusText = `**Status**: ${description.status.name}\n`;
+       statusText += `**Tipo (Temporal)**: ${description.type}\n`;
        statusText += `**Criado em**: ${description.startTime}\n`;
        if (description.closeTime) statusText += `**Fechado em**: ${description.closeTime}\n`;
        

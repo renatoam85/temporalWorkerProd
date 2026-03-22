@@ -1,12 +1,24 @@
 import { z } from "zod";
 
-const isProd = process.env.NODE_ENV === "production";
+function getIsProd(): boolean {
+  return typeof process !== 'undefined' && process.env?.NODE_ENV === "production";
+}
+
+const isProd = getIsProd();
 const suffix = isProd ? "" : "-teste";
 
-// Valores aceitos para fila
-export const QUEUE_ORCHESTRATION = `orchestration-queue${suffix}`;
-export const QUEUE_HUMAN_TASK = `human-task-queue${suffix}`;
-export const QUEUE_AUTOMATION = `automation-queue${suffix}`;
+// Nomes Base das Filas (usamos para construir nomes dinâmicos se necessário)
+export const QUEUE_ORCHESTRATION_BASE = "orchestration-v3-queue";
+export const QUEUE_HUMAN_TASK_BASE = "human-task-v3-queue";
+export const QUEUE_AUTOMATION_BASE = "automation-v3-queue";
+
+// Nome do arquivo de banco de dados conforme o ambiente
+export const HUMAN_TASKS_DB_FILENAME = `human-tasks-database${suffix}.json`;
+
+// Valores aceitos para fila (para uso em Workers e Clients fora do sandbox)
+export const QUEUE_ORCHESTRATION = `${QUEUE_ORCHESTRATION_BASE}${suffix}`;
+export const QUEUE_HUMAN_TASK = `${QUEUE_HUMAN_TASK_BASE}${suffix}`;
+export const QUEUE_AUTOMATION = `${QUEUE_AUTOMATION_BASE}${suffix}`;
 
 // Tipo de Workflow Registrado no Temporal
 export const WORKFLOW_TYPE_NAME = isProd ? "Processo" : "Processo_teste";
@@ -65,6 +77,8 @@ export interface WorkflowState {
 export interface PendingHumanTask {
   activityId: string;           // Temporal Activity ID gerado
   workflowExecutionId: string;  // Workflow ID gerado pelo Temporal
+  workflowType: string;         // Tipo registrado no Temporal (Processo ou Processo_teste)
+  envMode: string;              // "produção" ou "teste" conforme o Worker
   processId: string;            // ID semântico do processo (ex: processo_onboarding)
   stepId: string;               // ID da etapa de Tarefa Humana sendo tocada
   type: "tarefa_humana" | "tarefa_agente";

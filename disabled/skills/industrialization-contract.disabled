@@ -10,7 +10,7 @@ Each step from Discovery must generate **one Temporal Activity**.
 
 Every Activity must define:
 
-- `maximumAttempts`: 10
+- `maximumAttempts`: 20
 - `backoffCoefficient`: 2
 - `initialInterval`: 2 seconds
 

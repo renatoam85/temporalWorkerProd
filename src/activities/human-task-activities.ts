@@ -3,7 +3,8 @@ import { JSONFilePreset } from "lowdb/node";
 
 import { 
   ActivityResult, 
-  PendingHumanTask 
+  PendingHumanTask,
+  HUMAN_TASKS_DB_FILENAME 
 } from "../types/workflow";
 import path from "path";
 
@@ -15,7 +16,7 @@ const PROJECT_ROOT = process.cwd();
 type Data = { pendingTasks: PendingHumanTask[] };
 
 async function getDb() {
-  const dbPath = path.resolve(PROJECT_ROOT, "data", "human-tasks-database.json");
+  const dbPath = path.resolve(PROJECT_ROOT, "data", HUMAN_TASKS_DB_FILENAME);
   return JSONFilePreset<Data>(dbPath, { pendingTasks: [] });
 }
 

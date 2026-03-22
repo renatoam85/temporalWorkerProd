@@ -1,10 +1,11 @@
-import { proxyActivities, sleep, log, condition } from "@temporalio/workflow";
-import { 
-  ProcessDefinition, 
-  WorkflowState, 
-  ActivityResult, 
-  QUEUE_HUMAN_TASK, 
-  QUEUE_AUTOMATION 
+import { proxyActivities, sleep, log, condition, workflowInfo } from "@temporalio/workflow";
+import {
+  ProcessDefinition,
+  WorkflowState,
+  ActivityResult,
+  QUEUE_HUMAN_TASK_BASE,
+  QUEUE_AUTOMATION_BASE,
+  WORKFLOW_TYPE_NAME
 } from "../types/workflow";
 
 // Mapeamos as atividades que vamos chamar do ponto de vista do Orchestrator
@@ -13,21 +14,6 @@ import type * as executeAutomationFile from "../activities/executeAutomation";
 import type * as executeWebhookFile from "../activities/executeWebhook";
 import type * as executeAIActionFile from "../activities/executeAIAction";
 
-// O Workflow precisa de duas proxies para conversar com filas diferentes
-const humanTaskActivities = proxyActivities<typeof executeHumanTaskFile>({
-  taskQueue: QUEUE_HUMAN_TASK,
-  startToCloseTimeout: "30 days", // Tarefa humana pode demorar bastantes dias para ser retornado
-});
-
-const automationActivities = proxyActivities<typeof executeAutomationFile & typeof executeWebhookFile & typeof executeAIActionFile>({
-  taskQueue: QUEUE_AUTOMATION,
-  startToCloseTimeout: "5 minutes", // Automações devem rodar de forma síncrona/rápida 
-  retry: {
-    initialInterval: "1s",
-    backoffCoefficient: 2,
-    maximumAttempts: 3,
-  },
-});
 
 
 /**
@@ -35,14 +21,44 @@ const automationActivities = proxyActivities<typeof executeAutomationFile & type
  * puramente baseado no processo de notação e definição lida.
  */
 async function processOrchestratorImpl(
-  processDefinition: ProcessDefinition, 
+  processDefinition: ProcessDefinition,
   markdownContent: string,
   initialData?: any
 ): Promise<WorkflowState> {
+  const { workflowType, workflowId } = workflowInfo();
+
+  log.info(`[DEBUG] Check Ambiente: ID=${workflowId}, Type=${workflowType}, Worker Espera=${WORKFLOW_TYPE_NAME}`);
+
+  // Segurança: Garante que estamos rodando um dos tipos conhecidos.
+  const allowedTypes = ["Processo", "Processo_teste"];
+  if (!allowedTypes.includes(workflowType)) {
+    log.error(`[CRITICAL] Violacão de ambiente: Tipo de workflow '${workflowType}' não reconhecido.`);
+    throw new Error(`Violacão de ambiente: Tipo de workflow '${workflowType}' não reconhecido.`);
+  }
+
+  // Define sufixo dinamicamente baseado no tipo de workflow real logado no Temporal
+  const suffix = (workflowType === "Processo_teste") ? "-teste" : "";
+
+  // Criação dinâmica dos proxies para apontar para as filas corretas (sandbox-safe)
+  const humanTaskActivities = proxyActivities<typeof executeHumanTaskFile>({
+    taskQueue: `${QUEUE_HUMAN_TASK_BASE}${suffix}`,
+    startToCloseTimeout: "30 days",
+  });
+
+  const automationActivities = proxyActivities<typeof executeAutomationFile & typeof executeWebhookFile & typeof executeAIActionFile>({
+    taskQueue: `${QUEUE_AUTOMATION_BASE}${suffix}`,
+    startToCloseTimeout: "5 minutes",
+    retry: {
+      initialInterval: "1s",
+      backoffCoefficient: 2,
+      maximumAttempts: 20,
+    },
+  });
+
   const { id: processId, steps, passo_inicial } = processDefinition;
- 
+
   log.info(`Iniciando orquestração determinística do Processo: ${processId} a partir do step ${passo_inicial}`);
- 
+
   const state: WorkflowState = {
     process_id: processId,
     current_step: passo_inicial,
@@ -70,7 +86,7 @@ async function processOrchestratorImpl(
 
     let result: ActivityResult;
     try {
-      log.info(`[Step: ${step.id}] Navegando tipo: ${step.tipo} (Fila alvo em andamento...)`);
+      log.info(`[Step: ${step.id}] Navegando tipo: ${step.tipo} para o Processo: ${processId} (Fila alvo em andamento...)`);
 
       // Decisão Condicional sobre QUAL Atividade de QUAL Worker chamar
       if (step.tipo === "tarefa_humana" || step.tipo === "tarefa_agente") {
@@ -123,7 +139,7 @@ async function processOrchestratorImpl(
 
     // Avalia regra de navegação para decidir o próximo State
     let nextStepId = step.navegacao[result.status];
-    
+
     // Se não encontrou do status específico e há um "padrao" mapping na definição de navegação
     if (!nextStepId && step.navegacao["padrao"]) {
       nextStepId = step.navegacao["padrao"];
@@ -131,9 +147,9 @@ async function processOrchestratorImpl(
 
     // Se as regras de navegação determinam "finalizado" (palavra chave reservada)
     if (nextStepId === "finalizado" || !nextStepId) {
-       log.info(`[Step: ${step.id}] Regra de navegação retornou finalizar. Status atual: ${result.status}`);
-       state.is_completed = true;
-       break;
+      log.info(`[Step: ${step.id}] Regra de navegação retornou finalizar. Status atual: ${result.status}`);
+      state.is_completed = true;
+      break;
     }
 
     // Caso contrário, atribui novo step para o loop continuar
@@ -145,6 +161,4 @@ async function processOrchestratorImpl(
   return state;
 }
 
-// Registros dos Workflow Types pro Temporal (um para Prod, outro para Test)
-export const Processo = processOrchestratorImpl;
-export const Processo_teste = processOrchestratorImpl;
+export { processOrchestratorImpl };

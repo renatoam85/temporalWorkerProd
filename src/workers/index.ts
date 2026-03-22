@@ -4,26 +4,33 @@ import { executeHumanTask } from "../activities/executeHumanTask";
 import { executeAutomation } from "../activities/executeAutomation";
 import { executeWebhook } from "../activities/executeWebhook";
 import { executeAIAction } from "../activities/executeAIAction";
-import { QUEUE_ORCHESTRATION, QUEUE_HUMAN_TASK, QUEUE_AUTOMATION } from "../types/workflow";
-import path from "path";
-
-/**
- * Inicia os 3 workers conforme o design da aplicação única.
- */
-export async function startWorkers(temporalAddress: string) {
+  import { 
+    QUEUE_ORCHESTRATION, 
+    QUEUE_HUMAN_TASK, 
+    QUEUE_AUTOMATION,
+    WORKFLOW_TYPE_NAME 
+  } from "../types/workflow";
+  import path from "path";
   
-  // O Temporal Worker exige o caminho pro arquivo compilado onde estão os workflows (pela isolação V8)
+  /**
+   * Inicia os 3 workers conforme o design da aplicação única.
+   */
+export async function startWorkers(temporalAddress: string) {
+  const isProd = process.env.NODE_ENV === "production";
+  const workflowsFileName = isProd ? "prod-orchestrator" : "test-orchestrator";
+  
   const workflowsPath = require.resolve(
-    path.join(__dirname, "../workflows", "process-orchestrator.js")
+    path.join(__dirname, "../workflows", workflowsFileName)
   );
 
   console.log(`[Worker] Conectando ao Temporal Server em: ${temporalAddress}`);
+  console.log(`[Worker] Carregando workflows de: ${workflowsPath}`);
 
   // Cria a conexão nativa
   const connection = await NativeConnection.connect({
     address: temporalAddress,
   });
-  
+
   // 1. Worker de Orquestração (Roda apenas o Workflow)
   const orchestrationWorker = await Worker.create({
     connection,

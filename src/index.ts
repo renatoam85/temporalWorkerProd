@@ -1,4 +1,5 @@
 import "dotenv/config";
+console.log(`[DEBUG] index.ts Startup: NODE_ENV="${process.env.NODE_ENV}"`);
 import { startMcpServer } from "./mcp-server";
 import { startWorkers } from "./workers/index";
 import { Connection, Client } from "@temporalio/client";
@@ -17,17 +18,23 @@ async function main() {
   console.log("==========================================");
 
   // 1. Iniciar os 3 Workers
+  console.log("[DEBUG] Chamando startWorkers...");
   const workerPromise = startWorkers(TEMPORAL_SERVER_ADDRESS).catch(err => {
-    console.error("Falha ao iniciar os workers do Temporal:", err);
+    console.error("[CRITICAL] Falha nos workers:", err);
+    process.exit(1);
   });
 
   // 2. Iniciar o servidor MCP
+  console.log("[DEBUG] Chamando startMcpServer...");
   const mcpPromise = startMcpServer().catch(err => {
-    console.error("Falha ao iniciar o Servidor MCP:", err);
+    console.error("[CRITICAL] Falha no MCP:", err);
+    process.exit(1);
   });
 
   // Aguardar que todos tenham rodado (Promessas contínuas em loop)
-  // Mas não vamos parar o main.
+  console.log("[DEBUG] Aguardando promessas (Promise.all)...");
+  await Promise.all([workerPromise, mcpPromise]);
+  console.log("[DEBUG] Todas as promessas iniciais resolvidas.");
   
   console.log("\nAbrimos também um endpoint de utilidade para rodar um fluxo...");
   

@@ -5,14 +5,15 @@ import {
   ProcessStep, 
   WorkflowState, 
   ActivityResult, 
-  PendingHumanTask 
+  PendingHumanTask,
+  HUMAN_TASKS_DB_FILENAME
 } from "../types/workflow";
 
 // Estrutura do banco local para Tarefas Humanas
 type Data = { pendingTasks: PendingHumanTask[] };
 
 async function getDb() {
-  const dbPath = path.resolve(process.cwd(), "data", "human-tasks-database.json");
+  const dbPath = path.resolve(process.cwd(), "data", HUMAN_TASKS_DB_FILENAME);
   return JSONFilePreset<Data>(dbPath, { pendingTasks: [] });
 }
 
@@ -40,9 +41,13 @@ export async function executeHumanTask({
   );
 
   if (!alreadyExists) {
+    console.log(`[DEBUG] executeHumanTask: NODE_ENV="${process.env.NODE_ENV}", DB="${HUMAN_TASKS_DB_FILENAME}"`);
+    const isProd = process.env.NODE_ENV === "production";
     const pendingTask: PendingHumanTask = {
       activityId: info.activityId,
       workflowExecutionId: info.workflowExecution.workflowId, 
+      workflowType: info.workflowType,
+      envMode: isProd ? "produção" : "teste",
       processId,
       stepId: step.id,
       type: step.tipo as "tarefa_humana" | "tarefa_agente",
