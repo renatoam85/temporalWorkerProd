@@ -9,15 +9,10 @@ const suffix = isProd ? "" : "-teste";
 
 // Nomes Base das Filas (usamos para construir nomes dinâmicos se necessário)
 export const QUEUE_ORCHESTRATION_BASE = "orchestration-v3-queue";
-export const QUEUE_HUMAN_TASK_BASE = "human-task-v3-queue";
 export const QUEUE_AUTOMATION_BASE = "automation-v3-queue";
-
-// Nome do arquivo de banco de dados conforme o ambiente
-export const HUMAN_TASKS_DB_FILENAME = `human-tasks-database${suffix}.json`;
 
 // Valores aceitos para fila (para uso em Workers e Clients fora do sandbox)
 export const QUEUE_ORCHESTRATION = `${QUEUE_ORCHESTRATION_BASE}${suffix}`;
-export const QUEUE_HUMAN_TASK = `${QUEUE_HUMAN_TASK_BASE}${suffix}`;
 export const QUEUE_AUTOMATION = `${QUEUE_AUTOMATION_BASE}${suffix}`;
 
 // Tipo de Workflow Registrado no Temporal
@@ -73,16 +68,16 @@ export interface WorkflowState {
   is_completed: boolean;
 }
 
-// Interface estruturada para o que fica pendente no banco de Tarefas Humanas
-export interface PendingHumanTask {
-  activityId: string;           // Temporal Activity ID gerado
-  workflowExecutionId: string;  // Workflow ID gerado pelo Temporal
-  workflowType: string;         // Tipo registrado no Temporal (Processo ou Processo_teste)
-  envMode: string;              // "produção" ou "teste" conforme o Worker
-  processId: string;            // ID semântico do processo (ex: processo_onboarding)
-  stepId: string;               // ID da etapa de Tarefa Humana sendo tocada
-  type: "tarefa_humana" | "tarefa_agente";
-  context: WorkflowState;       // Estado acumulado até este momento
-  markdownContent?: string;     // Todo documento ou a parte relevante exportada pro MCP
-  createdAt: string;            // ISO Date
-}
+// [NOVO] Definições de Signal e Query para Tarefas Humanas (compartilhadas)
+import { defineSignal, defineQuery } from "@temporalio/workflow";
+
+/**
+ * Signal enviado para completar uma tarefa humana.
+ * Aceita um ActivityResult como payload.
+ */
+export const humanTaskSignal = defineSignal<[ActivityResult]>('human_task_completed');
+
+/**
+ * Query para obter o estado atual e o conteúdo markdown do workflow.
+ */
+export const getCurrentStateQuery = defineQuery<{ state: WorkflowState; markdownContent: string }>('get_current_state');

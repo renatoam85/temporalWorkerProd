@@ -1,20 +1,18 @@
-import { proxyActivities, sleep, log, condition, workflowInfo } from "@temporalio/workflow";
+import { proxyActivities, log, condition, workflowInfo, setHandler, upsertSearchAttributes } from "@temporalio/workflow";
 import {
   ProcessDefinition,
   WorkflowState,
   ActivityResult,
-  QUEUE_HUMAN_TASK_BASE,
   QUEUE_AUTOMATION_BASE,
-  WORKFLOW_TYPE_NAME
+  WORKFLOW_TYPE_NAME,
+  humanTaskSignal,
+  getCurrentStateQuery
 } from "../types/workflow";
 
 // Mapeamos as atividades que vamos chamar do ponto de vista do Orchestrator
-import type * as executeHumanTaskFile from "../activities/executeHumanTask";
 import type * as executeAutomationFile from "../activities/executeAutomation";
 import type * as executeWebhookFile from "../activities/executeWebhook";
 import type * as executeAIActionFile from "../activities/executeAIAction";
-
-
 
 /**
  * Workflow principal: Determina quais atividades a orquestração deve chamar
@@ -39,12 +37,6 @@ async function processOrchestratorImpl(
   // Define sufixo dinamicamente baseado no tipo de workflow real logado no Temporal
   const suffix = (workflowType === "Processo_teste") ? "-teste" : "";
 
-  // Criação dinâmica dos proxies para apontar para as filas corretas (sandbox-safe)
-  const humanTaskActivities = proxyActivities<typeof executeHumanTaskFile>({
-    taskQueue: `${QUEUE_HUMAN_TASK_BASE}${suffix}`,
-    startToCloseTimeout: "30 days",
-  });
-
   const automationActivities = proxyActivities<typeof executeAutomationFile & typeof executeWebhookFile & typeof executeAIActionFile>({
     taskQueue: `${QUEUE_AUTOMATION_BASE}${suffix}`,
     startToCloseTimeout: "5 minutes",
@@ -65,6 +57,20 @@ async function processOrchestratorImpl(
     history: {},
     is_completed: false
   };
+
+  // [NOVO] Registrar query handler para expor estado ao MCP em tempo real
+  let currentMarkdownContent = markdownContent;
+  setHandler(getCurrentStateQuery, () => ({
+    state,
+    markdownContent: currentMarkdownContent
+  }));
+
+  // [NOVO] Registrar signal handler para receber conclusão de tarefas humanas
+  let pendingSignalResult: ActivityResult | null = null;
+  setHandler(humanTaskSignal, (result: ActivityResult) => {
+    log.info(`Signal recebido para a tarefa humana: status=${result.status}`);
+    pendingSignalResult = result;
+  });
 
   // Se o processo foi startado com algum dado já pre-existente,
   // inserimos na history apenas para que os steps o obtenham.
@@ -90,21 +96,31 @@ async function processOrchestratorImpl(
 
       // Decisão Condicional sobre QUAL Atividade de QUAL Worker chamar
       if (step.tipo === "tarefa_humana" || step.tipo === "tarefa_agente") {
-        // Envia para o humanTaskWorker. 
-        // Ele vai adicionar a tarefa a um banco/storage e colocar a PromiseActivity() async em loop
-        result = await humanTaskActivities.executeHumanTask({
-          processId,
-          step,
-          state,
-          markdownContent
-        });
+        // [NOVO] Utiliza Signal + Search Attributes em vez de atividade externa
+        log.info(`[Step: ${step.id}] Aguardando intervenção humana via Signal...`);
+        
+        // Marca o workflow como aguardando tarefa humana via Search Attribute
+        await upsertSearchAttributes({ StepAfterSignal: [step.id] });
+
+        // Aguarda o signal (timeout de 30 dias para intervenção humana)
+        pendingSignalResult = null;
+        await condition(() => pendingSignalResult !== null, "30 days");
+
+        if (!pendingSignalResult) {
+            throw new Error(`Timeout de 30 dias atingido aguardando signal para o step ${step.id}`);
+        }
+
+        // Limpa o search attribute após a conclusão
+        await upsertSearchAttributes({ StepAfterSignal: [''] });
+
+        result = pendingSignalResult;
 
       } else if (step.tipo === "automatizada") {
         result = await automationActivities.executeAutomation({
           processId,
           step,
           state,
-          markdownContent
+          markdownContent: currentMarkdownContent
         });
 
       } else if (step.tipo === "webhook") {
@@ -117,7 +133,7 @@ async function processOrchestratorImpl(
           processId,
           step,
           state,
-          markdownContent
+          markdownContent: currentMarkdownContent
         });
       } else {
         throw new Error(`Tipo de atividade desconhecido: ${step.tipo}`);

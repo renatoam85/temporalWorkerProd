@@ -1,12 +1,10 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
 import * as orchestrationWorkflows from "../workflows/process-orchestrator";
-import { executeHumanTask } from "../activities/executeHumanTask";
 import { executeAutomation } from "../activities/executeAutomation";
 import { executeWebhook } from "../activities/executeWebhook";
 import { executeAIAction } from "../activities/executeAIAction";
   import { 
     QUEUE_ORCHESTRATION, 
-    QUEUE_HUMAN_TASK, 
     QUEUE_AUTOMATION,
     WORKFLOW_TYPE_NAME 
   } from "../types/workflow";
@@ -38,16 +36,7 @@ export async function startWorkers(temporalAddress: string) {
     taskQueue: QUEUE_ORCHESTRATION,
   });
 
-  // 2. Worker de Tarefa Humana (Roda apenas as atividades de Tarefa Humana)
-  const humanTaskWorker = await Worker.create({
-    connection,
-    taskQueue: QUEUE_HUMAN_TASK,
-    activities: {
-      executeHumanTask
-    }
-  });
-
-  // 3. Worker de Automação (Roda as atividades de integração, IA nativa, webhooks)
+  // 2. Worker de Automação (Roda as atividades de integração, IA nativa, webhooks)
   const automationWorker = await Worker.create({
     connection,
     taskQueue: QUEUE_AUTOMATION,
@@ -63,7 +52,6 @@ export async function startWorkers(temporalAddress: string) {
   // Roda todos simultaneamente
   await Promise.all([
     orchestrationWorker.run(),
-    humanTaskWorker.run(),
     automationWorker.run(),
   ]);
 }

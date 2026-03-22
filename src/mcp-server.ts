@@ -18,10 +18,15 @@ dotenv.config({ path: path.join(PROJECT_ROOT, ".env") });
 
 import express from "express";
 import cors from "cors";
-import { getPendingHumanTasks, completeHumanTask } from "./activities/human-task-activities";
 import { Connection, Client } from "@temporalio/client";
 import { parseProcessMarkdown, parseProcessMarkdownString, saveProcessMarkdown, findLatestProcessVersion } from "./utils/markdown-parser";
-import { QUEUE_ORCHESTRATION, WORKFLOW_TYPE_NAME } from "./types/workflow";
+import {
+  QUEUE_ORCHESTRATION,
+  WORKFLOW_TYPE_NAME,
+  humanTaskSignal,
+  getCurrentStateQuery,
+  ActivityResult
+} from "./types/workflow";
 
 const MCP_PORT = Number(process.env.MCP_PORT) || 3100;
 const TEMPORAL_SERVER_ADDRESS = process.env.TEMPORAL_SERVER_IP 
@@ -152,7 +157,23 @@ export function createMcpServer() {
     const { name, arguments: args } = request.params;
 
     if (name === "list_human_tasks") {
-      const tasks = await getPendingHumanTasks();
+      const client = await getTemporalClient();
+      
+      // Consulta o Temporal por workflows que possuem o Search Attribute StepAfterSignal preenchido
+      const iterator = client.workflow.list({
+        query: `StepAfterSignal != "" AND ExecutionStatus = "Running"`
+      });
+
+      const tasks = [];
+      for await (const workflow of iterator) {
+        tasks.push({
+          workflowExecutionId: workflow.workflowId,
+          processName: (workflow.searchAttributes?.ProcessName as string[])?.[0] || 'N/A',
+          processVersion: (workflow.searchAttributes?.ProcessVersion as string[])?.[0] || 'N/A',
+          pendingStep: (workflow.searchAttributes?.StepAfterSignal as string[])?.[0] || 'N/A',
+          startTime: workflow.startTime
+        });
+      }
       
       if (tasks.length === 0) {
         return {
@@ -161,12 +182,12 @@ export function createMcpServer() {
       }
 
       // Formatamos a saída como Tabela Markdown para melhor UX no Client (Cursor/Claude Desktop)
-      let markdownTable = "| Activity ID | Execution ID | Process ID | Workflow Type | Env | Step ID | Type | Criada Em |\n";
-      markdownTable += "|---|---|---|---|---|---|---|---|\n";
+      let markdownTable = "| Execution ID | Process ID | Version | Pending Step | Criada Em |\n";
+      markdownTable += "|---|---|---|---|---|\n";
       
       tasks.forEach(t => {
-        const dateStr = t.createdAt ? new Date(t.createdAt).toISOString() : "N/A";
-        markdownTable += `| \`${t.activityId}\` | \`${t.workflowExecutionId}\` | ${t.processId} | ${t.workflowType || 'N/A'} | ${t.envMode || 'N/A'} | ${t.stepId} | ${t.type} | ${dateStr} |\n`;
+        const dateStr = t.startTime ? new Date(t.startTime).toISOString() : "N/A";
+        markdownTable += `| \`${t.workflowExecutionId}\` | ${t.processName} | ${t.processVersion} | \`${t.pendingStep}\` | ${dateStr} |\n`;
       });
 
       return {
@@ -176,29 +197,28 @@ export function createMcpServer() {
 
     if (name === "start_activity") {
       const workflowExecId = String(args?.workflowExecutionId);
-      const tasks = await getPendingHumanTasks();
-      const task = tasks.find(t => t.workflowExecutionId === workflowExecId);
+      const client = await getTemporalClient();
+      const handle = client.workflow.getHandle(workflowExecId);
 
-      if (!task) {
-        throw new Error(`Atividade para a execução ${workflowExecId} não encontrada pendente.`);
+      try {
+        // [NOVO] Consulta o estado atual diretamente do workflow via Query Handler
+        const stateContext = await handle.query(getCurrentStateQuery);
+        
+        return {
+          content: [{ type: "text", text: JSON.stringify({
+            workflowExecutionId: workflowExecId,
+            ...stateContext
+          }, null, 2) }],
+        };
+      } catch (err: any) {
+        throw new Error(`Não foi possível obter o contexto para a execução ${workflowExecId}: ${err.message}`);
       }
-
-      return {
-        content: [{ type: "text", text: JSON.stringify(task, null, 2) }],
-      };
     }
 
     if (name === "complete_activity") {
       const workflowId = String(args?.workflowExecutionId);
       const status = String(args?.resultStatus);
-      
-      // Resolve o activityId automaticamente a partir do banco
-      const tasks = await getPendingHumanTasks();
-      const task = tasks.find(t => t.workflowExecutionId === workflowId);
-      if (!task) {
-        throw new Error(`Atividade para a execução ${workflowId} não encontrada pendente.`);
-      }
-      const activityId = task.activityId;
+      const client = await getTemporalClient();
       
       let objectData = undefined;
       if (args?.dataPayload) {
@@ -209,13 +229,18 @@ export function createMcpServer() {
         }
       }
 
+      const result: ActivityResult = { status, data: objectData };
+
       try {
-        await completeHumanTask(workflowId, activityId, status, objectData);
+        // [NOVO] Completa a atividade enviando um Signal diretamente para o workflow
+        const handle = client.workflow.getHandle(workflowId);
+        await handle.signal(humanTaskSignal, result);
+        
         return {
-           content: [{ type: "text", text: `Atividade da execução ${workflowId} atualizada com STATUS: ${status} e resultado enviado para o Orquestrador.` }],
+           content: [{ type: "text", text: `Atividade da execução ${workflowId} atualizada com STATUS: ${status} e resultado enviado via Signal para o Orquestrador.` }],
         };
       } catch(err: any) {
-        throw new Error(`Falha ao completar a atividade: ${err.message}`);
+        throw new Error(`Falha ao enviar signal para completar a atividade: ${err.message}`);
       }
     }
 
