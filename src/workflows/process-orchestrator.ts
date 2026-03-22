@@ -102,18 +102,20 @@ async function processOrchestratorImpl(
         // Marca o workflow como aguardando tarefa humana via Search Attribute
         await upsertSearchAttributes({ StepAfterSignal: [step.id] });
 
-        // Aguarda o signal (timeout de 30 dias para intervenção humana)
-        pendingSignalResult = null;
-        await condition(() => pendingSignalResult !== null, "30 days");
+        try {
+          // Aguarda o signal (timeout de 30 dias para intervenção humana)
+          pendingSignalResult = null;
+          await condition(() => pendingSignalResult !== null, "30 days");
 
-        if (!pendingSignalResult) {
+          if (!pendingSignalResult) {
             throw new Error(`Timeout de 30 dias atingido aguardando signal para o step ${step.id}`);
+          }
+
+          result = pendingSignalResult;
+        } finally {
+          // [REFINAMENTO] Limpa o search attribute após a conclusão ou erro/timeout
+          await upsertSearchAttributes({ StepAfterSignal: [''] });
         }
-
-        // Limpa o search attribute após a conclusão
-        await upsertSearchAttributes({ StepAfterSignal: [''] });
-
-        result = pendingSignalResult;
 
       } else if (step.tipo === "automatizada") {
         result = await automationActivities.executeAutomation({
