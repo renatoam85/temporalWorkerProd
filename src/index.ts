@@ -31,13 +31,6 @@ async function main() {
     process.exit(1);
   });
 
-  // Aguardar que todos tenham rodado (Promessas contínuas em loop)
-  console.log("[DEBUG] Aguardando promessas (Promise.all)...");
-  await Promise.all([workerPromise, mcpPromise]);
-  console.log("[DEBUG] Todas as promessas iniciais resolvidas.");
-  
-  console.log("\nAbrimos também um endpoint de utilidade para rodar um fluxo...");
-  
   // (Pequeno script de helper para executar o fluxo que criaremos na pasta tempFiles)
   const isDebugRun = process.argv.includes("--test-run");
   if (isDebugRun) {
@@ -66,6 +59,11 @@ async function main() {
       }
     }, 5000); // 5 segundos apos boot
   }
+
+  // Aguardar que todos tenham rodado (Promessas contínuas em loop)
+  console.log("[DEBUG] Aguardando promessas (Promise.all)...");
+  await Promise.all([workerPromise, mcpPromise]);
+  console.log("[DEBUG] Todas as promessas iniciais resolvidas.");
 }
 
 main().catch(err => {

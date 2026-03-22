@@ -159,9 +159,12 @@ export function createMcpServer() {
     if (name === "list_human_tasks") {
       const client = await getTemporalClient();
       
-      // Consulta o Temporal por workflows que possuem o Search Attribute StepAfterSignal preenchido
+      const isProd = process.env.NODE_ENV === "production";
+      const workflowType = isProd ? "Processo" : "Processo_teste";
+
+      // Consulta o Temporal por workflows que possuem o Search Attribute StepAfterSignal preenchido e pelo tipo de ambiente
       const iterator = client.workflow.list({
-        query: `StepAfterSignal != "" AND ExecutionStatus = "Running"`
+        query: `StepAfterSignal != "" AND ExecutionStatus = "Running" AND WorkflowType = "${workflowType}"`
       });
 
       const tasks = [];
