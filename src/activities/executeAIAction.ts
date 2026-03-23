@@ -115,7 +115,11 @@ Responda em PORTUGUÊS.
     }
 
     const result = await response.json();
-    fs.writeFileSync(path.join(process.cwd(), "tmp", "ai_response.log"), JSON.stringify(result, null, 2));
+    const tmpDir = path.join(process.cwd(), "tmp");
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(tmpDir, "ai_response.log"), JSON.stringify(result, null, 2));
     
     // Suporte ao formato Responses API (output array) ou Chat Completions (choices)
     let content = "";

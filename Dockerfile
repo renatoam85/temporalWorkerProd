@@ -35,7 +35,7 @@ COPY --from=builder /app/dist ./dist
 COPY WORKFLOW_SCHEMA.md ./
 
 # Criar diretórios de dados com permissões apropriadas
-RUN mkdir -p /app/data /app/tempFiles
+RUN mkdir -p /app/data /app/tempFiles /app/tmp
 
 # Variáveis de ambiente com defaults sensatos
 ENV NODE_ENV=production
